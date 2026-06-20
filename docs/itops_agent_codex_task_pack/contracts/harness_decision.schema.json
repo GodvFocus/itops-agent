@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "HarnessDecision",
+  "type": "object",
+  "required": [
+    "ticketId",
+    "planId",
+    "decision",
+    "reason"
+  ],
+  "properties": {
+    "ticketId": {
+      "type": "string"
+    },
+    "planId": {
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "APPROVED",
+        "NEED_APPROVAL",
+        "REJECTED",
+        "ESCALATE"
+      ]
+    },
+    "executionMode": {
+      "enum": [
+        "SYNC",
+        "ASYNC",
+        "PAUSE",
+        "NONE"
+      ]
+    },
+    "reason": {
+      "type": "string"
+    },
+    "approvalType": {
+      "type": "string"
+    },
+    "rejectedSteps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "approvedSteps": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

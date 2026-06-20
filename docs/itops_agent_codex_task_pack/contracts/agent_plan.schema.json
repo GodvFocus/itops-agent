@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AgentCandidatePlan",
+  "type": "object",
+  "required": [
+    "planId",
+    "ticketId",
+    "intent",
+    "riskLevel",
+    "steps"
+  ],
+  "properties": {
+    "planId": {
+      "type": "string"
+    },
+    "ticketId": {
+      "type": "string"
+    },
+    "intent": {
+      "enum": [
+        "ACCOUNT_LOGIN_ISSUE",
+        "VPN_CONNECTION_ISSUE",
+        "PERMISSION_REQUEST",
+        "UNKNOWN"
+      ]
+    },
+    "riskLevel": {
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "FORBIDDEN"
+      ]
+    },
+    "goal": {
+      "type": "string"
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "stepNo",
+          "tool",
+          "action",
+          "actionType",
+          "params",
+          "riskLevel",
+          "requiredApproval",
+          "reason"
+        ],
+        "properties": {
+          "stepNo": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "tool": {
+            "type": "string"
+          },
+          "action": {
+            "type": "string"
+          },
+          "actionType": {
+            "enum": [
+              "READ",
+              "WRITE",
+              "APPROVAL_REQUIRED",
+              "FORBIDDEN"
+            ]
+          },
+          "params": {
+            "type": "object"
+          },
+          "riskLevel": {
+            "enum": [
+              "LOW",
+              "MEDIUM",
+              "HIGH",
+              "FORBIDDEN"
+            ]
+          },
+          "requiredApproval": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+tools:
+  - tool: AccountTool
+    action: queryAccountStatus
+    actionType: READ
+    defaultRisk: LOW
+    requiredParams: [employeeId]
+    approvalRequired: false
+
+  - tool: AccountTool
+    action: unlockAccount
+    actionType: WRITE
+    defaultRisk: MEDIUM
+    requiredParams: [employeeId]
+    approvalRequired: false
+    idempotencyKeyPattern: "idem:unlockAccount:{ticketId}:{employeeId}"
+
+  - tool: VpnTool
+    action: queryVpnPermission
+    actionType: READ
+    defaultRisk: LOW
+    requiredParams: [employeeId]
+    approvalRequired: false
+
+  - tool: VpnTool
+    action: queryVpnLoginFailure
+    actionType: READ
+    defaultRisk: LOW
+    requiredParams: [employeeId]
+    approvalRequired: false
+
+  - tool: MfaTool
+    action: queryMfaStatus
+    actionType: READ
+    defaultRisk: LOW
+    requiredParams: [employeeId]
+    approvalRequired: false
+
+  - tool: MfaTool
+    action: resetMfaBindingRequest
+    actionType: WRITE
+    defaultRisk: HIGH
+    requiredParams: [employeeId]
+    approvalRequired: true
+
+  - tool: PermissionTool
+    action: queryPermission
+    actionType: READ
+    defaultRisk: LOW
+    requiredParams: [employeeId, targetSystem]
+    approvalRequired: false
+
+  - tool: PermissionTool
+    action: grantPermission
+    actionType: WRITE
+    defaultRisk: MEDIUM
+    requiredParams: [employeeId, targetSystem, permissionLevel]
+    approvalRequired: conditional
+    idempotencyKeyPattern: "idem:grantPermission:{ticketId}:{employeeId}:{targetSystem}:{permissionLevel}"
+
+  - tool: NotificationTool
+    action: sendNotification
+    actionType: WRITE
+    defaultRisk: LOW
+    requiredParams: [recipientId, message]
+    approvalRequired: false

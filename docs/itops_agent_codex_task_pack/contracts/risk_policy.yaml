@@ -1,0 +1,57 @@
+policies:
+  - name: read_actions_auto_approved
+    when:
+      actionType: READ
+    decision: APPROVED
+    executionMode: ASYNC
+
+  - name: normal_account_unlock_auto_approved
+    when:
+      tool: AccountTool
+      action: unlockAccount
+      targetAccountRisk: LOW
+    decision: APPROVED
+    executionMode: ASYNC
+
+  - name: production_admin_permission_requires_approval
+    when:
+      tool: PermissionTool
+      action: grantPermission
+      targetSystemCategory: PRODUCTION
+      permissionLevel: admin
+    decision: NEED_APPROVAL
+    approvalType: SYSTEM_OWNER_APPROVAL
+    executionMode: PAUSE
+
+  - name: normal_permission_auto_or_simple_approval
+    when:
+      tool: PermissionTool
+      action: grantPermission
+      targetSystemCategory: NORMAL
+      permissionLevel: [viewer, developer, member]
+    decision: APPROVED
+    executionMode: ASYNC
+
+  - name: disable_account_forbidden
+    when:
+      action: disableAccount
+    decision: REJECTED
+    reason: FORBIDDEN_ACTION
+
+  - name: delete_permission_forbidden
+    when:
+      action: deletePermission
+    decision: REJECTED
+    reason: FORBIDDEN_ACTION
+
+  - name: unknown_tool_rejected
+    when:
+      toolRegistered: false
+    decision: REJECTED
+    reason: TOOL_NOT_REGISTERED
+
+  - name: missing_params_rejected
+    when:
+      paramsValid: false
+    decision: REJECTED
+    reason: MISSING_OR_INVALID_PARAMS
