@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITOps Ticket Console</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<main class="shell">
+    <section class="hero">
+        <p class="eyebrow">Phase 1 Ticket State Machine</p>
+        <h1>ITOps Ticket Console</h1>
+        <p class="subtitle">创建工单、查看列表、查看详情并触发受控状态流转。</p>
+    </section>
+
+    <section class="panel">
+        <h2>创建工单</h2>
+        <form id="create-form" class="grid">
+            <label>
+                标题
+                <input name="title" placeholder="例如：VPN 无法连接" required>
+            </label>
+            <label>
+                创建人 ID
+                <input name="creatorId" placeholder="U1001" required>
+            </label>
+            <label>
+                创建人角色
+                <select name="creatorRole">
+                    <option>EMPLOYEE</option>
+                    <option>IT_ENGINEER</option>
+                    <option>APPROVER</option>
+                    <option>ADMIN</option>
+                </select>
+            </label>
+            <label>
+                优先级
+                <select name="priority">
+                    <option>LOW</option>
+                    <option selected>MEDIUM</option>
+                    <option>HIGH</option>
+                </select>
+            </label>
+            <label class="full">
+                描述
+                <textarea name="description" rows="4" placeholder="请描述问题现象、影响范围和错误提示" required></textarea>
+            </label>
+            <button type="submit">提交工单</button>
+        </form>
+        <p id="create-result" class="muted"></p>
+    </section>
+
+    <section class="columns">
+        <article class="panel">
+            <div class="panel-head">
+                <h2>工单列表</h2>
+                <button id="refresh-list" type="button">刷新</button>
+            </div>
+            <div id="ticket-list" class="list"></div>
+        </article>
+
+        <article class="panel">
+            <h2>工单详情</h2>
+            <div id="ticket-detail" class="detail empty">选择左侧工单查看详情。</div>
+            <form id="transition-form" class="grid hidden">
+                <input type="hidden" name="ticketId">
+                <input type="hidden" name="expectedVersion">
+                <label>
+                    目标状态
+                    <select name="targetStatus">
+                        <option>TRIAGING</option>
+                        <option>NEED_MORE_INFO</option>
+                        <option>PLANNING</option>
+                        <option>PLAN_VALIDATING</option>
+                        <option>WAITING_APPROVAL</option>
+                        <option>EXECUTING</option>
+                        <option>WAITING_USER_CONFIRM</option>
+                        <option>RESOLVED</option>
+                        <option>FAILED</option>
+                        <option>ESCALATED</option>
+                        <option>MANUAL_TAKEOVER</option>
+                        <option>CLOSED</option>
+                    </select>
+                </label>
+                <label>
+                    操作者 ID
+                    <input name="actorId" placeholder="U2001" required>
+                </label>
+                <label>
+                    操作者角色
+                    <select name="actorRole">
+                        <option>EMPLOYEE</option>
+                        <option selected>IT_ENGINEER</option>
+                        <option>APPROVER</option>
+                        <option>ADMIN</option>
+                    </select>
+                </label>
+                <label class="full">
+                    备注
+                    <textarea name="comment" rows="3" placeholder="可选：记录本次状态变化原因"></textarea>
+                </label>
+                <button type="submit">提交状态变更</button>
+            </form>
+            <p id="transition-result" class="muted"></p>
+        </article>
+    </section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>
