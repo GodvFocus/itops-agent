@@ -17,7 +17,7 @@ class MockLLMClient:
                 return {"intent": "VPN_CONNECTION_ISSUE", "confidence": 0.97, "reasoning": "命中 VPN 关键词"}
             if any(token in text for token in ("权限", "permission", "grant access", "开通")):
                 return {"intent": "PERMISSION_REQUEST", "confidence": 0.95, "reasoning": "命中权限申请关键词"}
-            if any(token in text for token in ("登录", "login", "账号", "锁定", "password")):
+            if any(token in text for token in ("登录", "login", "sign in", "账号", "锁定", "password", "invalid credentials")):
                 return {"intent": "ACCOUNT_LOGIN_ISSUE", "confidence": 0.91, "reasoning": "命中登录异常关键词"}
             return {"intent": "UNKNOWN", "confidence": 0.52, "reasoning": "未命中 MVP 支持范围"}
 
@@ -34,6 +34,18 @@ class MockLLMClient:
                 slots["errorMessage"] = "认证失败"
             if "账号已锁定" in _build_text(request.context):
                 slots["errorMessage"] = "账号已锁定"
+            if "invalid credentials" in text:
+                slots["errorMessage"] = "invalid credentials"
+            if "登录失败" in _build_text(request.context):
+                slots["errorMessage"] = "登录失败"
+            if "sign in failed" in text:
+                slots["errorMessage"] = "sign in failed"
+            if "未开通" in _build_text(request.context):
+                slots["errorMessage"] = "VPN 未开通"
+            if "access denied" in text:
+                slots["errorMessage"] = "access denied"
+            if "无权限" in _build_text(request.context):
+                slots["errorMessage"] = "无权限访问"
             if "windows" in text or "电脑" in text:
                 slots["deviceType"] = "WINDOWS"
             if "mac" in text:

@@ -1,0 +1,182 @@
+[
+  {
+    "title": "OA 账号被锁定",
+    "description": "员工编号 U4101，登录 OA 提示账号已锁定。",
+    "expectedSopId": "SOP-ACC-LOCKED-001",
+    "expectedActions": ["queryAccountStatus", "unlockAccount", "sendNotification"]
+  },
+  {
+    "title": "ERP 登录锁定",
+    "description": "U4102 登录 ERP 显示账号已锁定，麻烦处理。",
+    "expectedSopId": "SOP-ACC-LOCKED-001",
+    "expectedActions": ["queryAccountStatus", "unlockAccount", "sendNotification"]
+  },
+  {
+    "title": "CRM 账户 locked",
+    "description": "我的工号是 U4103，CRM 账户 locked 无法继续登录。",
+    "expectedSopId": "SOP-ACC-LOCKED-001",
+    "expectedActions": ["queryAccountStatus", "unlockAccount", "sendNotification"]
+  },
+  {
+    "title": "SAP 登录失败",
+    "description": "员工 U4201 登录 SAP 报错密码错误。",
+    "expectedSopId": "SOP-ACC-LOGIN-ABNORMAL-001",
+    "expectedActions": ["queryAccountStatus", "sendNotification"]
+  },
+  {
+    "title": "Jira invalid credentials",
+    "description": "U4202 登录 Jira 提示 invalid credentials。",
+    "expectedSopId": "SOP-ACC-LOGIN-ABNORMAL-001",
+    "expectedActions": ["queryAccountStatus", "sendNotification"]
+  },
+  {
+    "title": "OA 登录异常",
+    "description": "员工编号 U4203，今天登录 OA 显示登录失败。",
+    "expectedSopId": "SOP-ACC-LOGIN-ABNORMAL-001",
+    "expectedActions": ["queryAccountStatus", "sendNotification"]
+  },
+  {
+    "title": "Windows VPN 认证失败",
+    "description": "员工编号 U4301，Windows 电脑连接 VPN 提示认证失败。",
+    "expectedSopId": "SOP-VPN-AUTH-FAIL-001",
+    "expectedActions": ["queryVpnLoginFailure", "queryMfaStatus", "sendNotification"]
+  },
+  {
+    "title": "Mac VPN 连不上",
+    "description": "U4302 的 MacBook 连接 VPN 报错认证失败。",
+    "expectedSopId": "SOP-VPN-AUTH-FAIL-001",
+    "expectedActions": ["queryVpnLoginFailure", "queryMfaStatus", "sendNotification"]
+  },
+  {
+    "title": "iPhone VPN 异常",
+    "description": "员工编号 U4303，iPhone 上 VPN 提示认证失败。",
+    "expectedSopId": "SOP-VPN-AUTH-FAIL-001",
+    "expectedActions": ["queryVpnLoginFailure", "queryMfaStatus", "sendNotification"]
+  },
+  {
+    "title": "VPN 权限未开通",
+    "description": "员工编号 U4401，Windows 连接 VPN 提示 VPN 未开通。",
+    "expectedSopId": "SOP-VPN-PERM-MISSING-001",
+    "expectedActions": ["queryVpnPermission", "sendNotification"]
+  },
+  {
+    "title": "VPN access denied",
+    "description": "U4402 用 Windows 电脑连接 VPN 报错 access denied。",
+    "expectedSopId": "SOP-VPN-PERM-MISSING-001",
+    "expectedActions": ["queryVpnPermission", "sendNotification"]
+  },
+  {
+    "title": "Mac VPN 无权限",
+    "description": "员工编号 U4403，MacBook 连接 VPN 显示无权限访问。",
+    "expectedSopId": "SOP-VPN-PERM-MISSING-001",
+    "expectedActions": ["queryVpnPermission", "sendNotification"]
+  },
+  {
+    "title": "VPN 失败且刚换手机",
+    "description": "员工编号 U4501，iPhone 连接 VPN 提示认证失败，刚换手机。",
+    "expectedSopId": "SOP-MFA-DEVICE-CHANGE-001",
+    "expectedActions": ["queryMfaStatus", "sendNotification", "resetMfaBindingRequest"]
+  },
+  {
+    "title": "MFA 换绑后 VPN 无法登录",
+    "description": "U4502 使用 Android 手机连 VPN 报错认证失败，今天刚换绑 MFA。",
+    "expectedSopId": "SOP-MFA-DEVICE-CHANGE-001",
+    "expectedActions": ["queryMfaStatus", "sendNotification", "resetMfaBindingRequest"]
+  },
+  {
+    "title": "新手机验证器无法通过 VPN",
+    "description": "员工编号 U4503，iPhone 新设备上的验证器刚重绑，VPN 认证失败。",
+    "expectedSopId": "SOP-MFA-DEVICE-CHANGE-001",
+    "expectedActions": ["queryMfaStatus", "sendNotification", "resetMfaBindingRequest"]
+  },
+  {
+    "title": "申请 Jira 只读权限",
+    "description": "员工编号 U4601，需要申请 Jira 只读权限两周，用于审计查看。",
+    "expectedSopId": "SOP-PERM-JIRA-STANDARD-001",
+    "expectedActions": ["queryPermission", "grantPermission", "sendNotification"]
+  },
+  {
+    "title": "Jira 写入权限申请",
+    "description": "U4602 需要申请 Jira 写入权限3天，因为要录入缺陷。",
+    "expectedSopId": "SOP-PERM-JIRA-STANDARD-001",
+    "expectedActions": ["queryPermission", "grantPermission", "sendNotification"]
+  },
+  {
+    "title": "Jira 普通权限开通",
+    "description": "员工编号 U4603，需要申请 Jira 只读权限7天，用于项目排查。",
+    "expectedSopId": "SOP-PERM-JIRA-STANDARD-001",
+    "expectedActions": ["queryPermission", "grantPermission", "sendNotification"]
+  },
+  {
+    "title": "申请 GitLab 写入权限",
+    "description": "员工编号 U4701，需要申请 GitLab 写入权限2周，因为要提交配置文件。",
+    "expectedSopId": "SOP-PERM-GITLAB-STANDARD-001",
+    "expectedActions": ["queryPermission", "grantPermission", "sendNotification"]
+  },
+  {
+    "title": "GitLab 只读权限申请",
+    "description": "U4702 需要申请 GitLab 只读权限1周，用于查看流水线配置。",
+    "expectedSopId": "SOP-PERM-GITLAB-STANDARD-001",
+    "expectedActions": ["queryPermission", "grantPermission", "sendNotification"]
+  },
+  {
+    "title": "仓库提交权限开通",
+    "description": "员工编号 U4703，需要申请 GitLab 写入权限5天，因为要提交修复脚本。",
+    "expectedSopId": "SOP-PERM-GITLAB-STANDARD-001",
+    "expectedActions": ["queryPermission", "grantPermission", "sendNotification"]
+  },
+  {
+    "title": "申请生产 SAP 管理员权限",
+    "description": "员工编号 U4801，需要申请生产 SAP 管理员权限1周，用于生产切换。",
+    "expectedSopId": "SOP-PERM-HIGH-RISK-APPROVAL-001",
+    "expectedActions": ["queryPermission", "sendNotification", "grantPermission"]
+  },
+  {
+    "title": "生产 ERP ADMIN 权限申请",
+    "description": "U4802 需要申请生产 ERP 管理员权限3天，因为要执行上线变更。",
+    "expectedSopId": "SOP-PERM-HIGH-RISK-APPROVAL-001",
+    "expectedActions": ["queryPermission", "sendNotification", "grantPermission"]
+  },
+  {
+    "title": "敏感生产系统管理员权限",
+    "description": "员工编号 U4803，需要申请生产 CRM 管理员权限2天，用于变更窗口处理。",
+    "expectedSopId": "SOP-PERM-HIGH-RISK-APPROVAL-001",
+    "expectedActions": ["queryPermission", "sendNotification", "grantPermission"]
+  },
+  {
+    "title": "邮箱登录失败",
+    "description": "员工编号 U4901，邮箱无法登录，提示账号已锁定。",
+    "expectedSopId": "SOP-EMAIL-LOGIN-MANUAL-001",
+    "expectedActions": ["queryAccountStatus", "sendNotification"]
+  },
+  {
+    "title": "EMAIL 无法登录",
+    "description": "U4902 登录 EMAIL 报错 invalid credentials，邮箱业务很着急。",
+    "expectedSopId": "SOP-EMAIL-LOGIN-MANUAL-001",
+    "expectedActions": ["queryAccountStatus", "sendNotification"]
+  },
+  {
+    "title": "公司邮箱 sign in failed",
+    "description": "员工编号 U4903，公司邮箱 sign in failed，无法收发邮件。",
+    "expectedSopId": "SOP-EMAIL-LOGIN-MANUAL-001",
+    "expectedActions": ["queryAccountStatus", "sendNotification"]
+  },
+  {
+    "title": "申请 SAP ADMIN 权限",
+    "description": "员工编号 U5001，需要申请 SAP 管理员权限1周，用于审计修复。",
+    "expectedSopId": "SOP-PERM-HIGH-RISK-APPROVAL-001",
+    "expectedActions": ["queryPermission", "sendNotification", "grantPermission"]
+  },
+  {
+    "title": "邮箱系统管理员权限申请",
+    "description": "U5002 需要申请 EMAIL 管理员权限3天，因为要排查群组问题。",
+    "expectedSopId": "SOP-PERM-HIGH-RISK-APPROVAL-001",
+    "expectedActions": ["queryPermission", "sendNotification", "grantPermission"]
+  },
+  {
+    "title": "HR系统 ADMIN 权限",
+    "description": "员工编号 U5003，需要申请 HR系统 管理员权限5天，用于数据修复。",
+    "expectedSopId": "SOP-PERM-HIGH-RISK-APPROVAL-001",
+    "expectedActions": ["queryPermission", "sendNotification", "grantPermission"]
+  }
+]
