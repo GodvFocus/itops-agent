@@ -32,3 +32,8 @@ build/
 ### VS Code ###
 .vscode/
 .m2repo/
+.env
+.env.local
+agent_runtime/.env
+__pycache__/
+*.pyc

@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
 import math
-import os
 from typing import Any
 import re
 
+from agent_runtime.config import get_runtime_settings
 from agent_runtime.models import SopMatch, SopMetadata, SopRetrievalResult
 from agent_runtime.sop_catalog import get_seed_sops
 
@@ -77,9 +77,10 @@ class QdrantCompatibleVectorStore:
     本地没有 client 或没有 URL 时回退到内存实现，保证 phase 3 在离线环境也能验收。
     """
 
-    def __init__(self, collection_name: str = "sop_catalog", url: str | None = None):
-        self.collection_name = collection_name
-        self.url = url or os.getenv("QDRANT_URL")
+    def __init__(self, collection_name: str | None = None, url: str | None = None):
+        settings = get_runtime_settings()
+        self.collection_name = collection_name or settings.qdrant_collection_name
+        self.url = url if url is not None else settings.qdrant_url
         self._backend = self._build_backend()
 
     def _build_backend(self):

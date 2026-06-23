@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: itops-agent
+  datasource:
+    url: ${ITOPS_MYSQL_URL:jdbc:mysql://127.0.0.1:3306/itops_agent?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${ITOPS_MYSQL_USERNAME:root}
+    password: ${ITOPS_MYSQL_PASSWORD:123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations:
+        - classpath:db/migration/V1__ticket_state_machine.sql
+        - classpath:db/migration/V2__ai_context.sql
+        - classpath:db/migration/V3__harness_async.sql
+  data:
+    redis:
+      host: ${ITOPS_REDIS_HOST:127.0.0.1}
+      port: ${ITOPS_REDIS_PORT:6379}
+      password: ${ITOPS_REDIS_PASSWORD:}
+      database: ${ITOPS_REDIS_DB:0}
+      timeout: ${ITOPS_REDIS_TIMEOUT:2s}
+  rabbitmq:
+    host: ${ITOPS_RABBITMQ_HOST:127.0.0.1}
+    port: ${ITOPS_RABBITMQ_PORT:5672}
+    username: ${ITOPS_RABBITMQ_USERNAME:guest}
+    password: ${ITOPS_RABBITMQ_PASSWORD:guest}
+    virtual-host: ${ITOPS_RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        default-requeue-rejected: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    default-enum-type-handler: org.apache.ibatis.type.EnumTypeHandler
+  global-config:
+    db-config:
+      update-strategy: not_null
+
+itops:
+  harness:
+    queue:
+      mode: ${ITOPS_HARNESS_QUEUE_MODE:memory}
+      tool-exchange: ${ITOPS_HARNESS_TOOL_EXCHANGE:itops.tool.exchange}
+      tool-routing-key: ${ITOPS_HARNESS_TOOL_ROUTING_KEY:itops.tool.execute}
+      tool-queue: ${ITOPS_HARNESS_TOOL_QUEUE:itops.tool.queue}
+      dead-letter-exchange: ${ITOPS_HARNESS_DLQ_EXCHANGE:itops.tool.dlx}
+      dead-letter-routing-key: ${ITOPS_HARNESS_DLQ_ROUTING_KEY:itops.tool.dead}
+      dead-letter-queue: ${ITOPS_HARNESS_DLQ_QUEUE:itops.tool.dead.queue}
+    lock:
+      mode: ${ITOPS_HARNESS_LOCK_MODE:memory}
+      key-prefix: ${ITOPS_HARNESS_LOCK_KEY_PREFIX:itops:harness:ticket-lock:}
+      ttl: ${ITOPS_HARNESS_LOCK_TTL:30s}
+    idempotency:
+      fast-store: ${ITOPS_HARNESS_IDEMPOTENCY_FAST_STORE:memory}
+      key-prefix: ${ITOPS_HARNESS_IDEMPOTENCY_KEY_PREFIX:itops:harness:idem:}
+  integrations:
+    qdrant:
+      enabled: ${ITOPS_QDRANT_ENABLED:false}
+      url: ${ITOPS_QDRANT_URL:}
+      collection-name: ${ITOPS_QDRANT_COLLECTION:sop_catalog}
+  ai:
+    embedding:
+      provider: ${ITOPS_EMBEDDING_PROVIDER:mock}
+      model: ${ITOPS_EMBEDDING_MODEL:hash-embedding}
+      endpoint: ${ITOPS_EMBEDDING_ENDPOINT:}
+      api-key: ${ITOPS_EMBEDDING_API_KEY:}
+    chat:
+      provider: ${ITOPS_CHAT_PROVIDER:mock}
+      model: ${ITOPS_CHAT_MODEL:mock-chat}
+      endpoint: ${ITOPS_CHAT_ENDPOINT:}
+      api-key: ${ITOPS_CHAT_API_KEY:}

@@ -1,0 +1,10 @@
+# Agent Runtime 核心依赖
+pydantic>=2,<3
+python-dotenv>=1,<2
+
+# 测试依赖
+pytest>=8,<9
+
+# 可选依赖：需要真实 LangGraph / Qdrant 时再安装
+# langgraph
+# qdrant-client
