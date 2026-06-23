@@ -7,8 +7,11 @@
 - `interceptor/`：Spring MVC 拦截器
 - `mapper/`：持久层接口，统一按 `MyBatis-Plus` 风格组织
 - `service/`：业务服务接口
+- `service/agent/`：Agent 理解、上下文组装与结构化输出校验
+- `service/harness/`：Candidate Plan 的基础校验与 Harness stub 逻辑
 - `service/impl/`：业务服务实现
 - `utils/`：通用工具与自定义异常
+- `agent_runtime/`：Python Agent Runtime，包含节点、检索、计划生成与测试
 
 ## 编码偏好
 
@@ -58,3 +61,8 @@
 
 - 运行 Python 代码时使用 `D:/anaconda3/envs/lc/python.exe`。
 - 不使用 `conda run` 方式执行项目内 Python 命令。
+
+## 开发流程
+
+- 每次开发代码前先参考`docs\itops_agent_codex_task_pack\prompts\CODEX_MASTER_PROMPT.md`
+- Phase 3 之后如涉及 Candidate Plan、Tool Registry、Harness Decision 等契约，优先同步检查 `docs\itops_agent_codex_task_pack\contracts\`
