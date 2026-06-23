@@ -1,12 +1,18 @@
 package com.itops.itopsagent.service.impl;
 
+import com.itops.itopsagent.dto.AddConversationMessageRequest;
+import com.itops.itopsagent.dto.AgentStepLogResponse;
+import com.itops.itopsagent.dto.ConversationMessageResponse;
 import com.itops.itopsagent.dto.CreateTicketRequest;
 import com.itops.itopsagent.dto.TicketResponse;
+import com.itops.itopsagent.dto.TicketContextResponse;
 import com.itops.itopsagent.dto.TicketStatusHistoryResponse;
 import com.itops.itopsagent.dto.TicketSummaryResponse;
 import com.itops.itopsagent.dto.TransitionTicketStatusRequest;
 import com.itops.itopsagent.entity.Ticket;
 import com.itops.itopsagent.entity.TicketStatusHistory;
+import com.itops.itopsagent.entity.enums.ConversationMessageType;
+import com.itops.itopsagent.entity.enums.ConversationRole;
 import com.itops.itopsagent.entity.enums.RiskLevel;
 import com.itops.itopsagent.entity.enums.TicketIntent;
 import com.itops.itopsagent.entity.enums.TicketPriority;
@@ -14,8 +20,12 @@ import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.entity.enums.UserRole;
 import com.itops.itopsagent.mapper.TicketMapper;
 import com.itops.itopsagent.mapper.TicketStatusHistoryMapper;
+import com.itops.itopsagent.service.AgentStepLogService;
+import com.itops.itopsagent.service.AgentUnderstandingService;
 import com.itops.itopsagent.service.AuditLogService;
+import com.itops.itopsagent.service.ConversationMessageService;
 import com.itops.itopsagent.service.TicketService;
+import com.itops.itopsagent.service.TicketContextService;
 import com.itops.itopsagent.service.TicketStateMachineService;
 import com.itops.itopsagent.utils.TicketIdGenerator;
 import com.itops.itopsagent.utils.exception.TicketConflictException;
@@ -25,13 +35,10 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@RequiredArgsConstructor
 public class TicketServiceImpl implements TicketService {
 
     /** 工单持久化入口。 */
@@ -44,8 +51,39 @@ public class TicketServiceImpl implements TicketService {
     private final TicketIdGenerator ticketIdGenerator;
     /** 审计日志服务。 */
     private final AuditLogService auditLogService;
+    /** 会话消息服务。 */
+    private final ConversationMessageService conversationMessageService;
+    /** 结构化上下文服务。 */
+    private final TicketContextService ticketContextService;
+    /** Agent 节点日志服务。 */
+    private final AgentStepLogService agentStepLogService;
+    /** 工单理解编排服务。 */
+    private final AgentUnderstandingService agentUnderstandingService;
     /** 统一时钟，便于测试和时间控制。 */
     private final Clock clock;
+
+    public TicketServiceImpl(
+            TicketMapper ticketMapper,
+            TicketStatusHistoryMapper ticketStatusHistoryMapper,
+            TicketStateMachineService ticketStateMachineService,
+            TicketIdGenerator ticketIdGenerator,
+            AuditLogService auditLogService,
+            ConversationMessageService conversationMessageService,
+            TicketContextService ticketContextService,
+            AgentStepLogService agentStepLogService,
+            AgentUnderstandingService agentUnderstandingService,
+            Clock clock) {
+        this.ticketMapper = ticketMapper;
+        this.ticketStatusHistoryMapper = ticketStatusHistoryMapper;
+        this.ticketStateMachineService = ticketStateMachineService;
+        this.ticketIdGenerator = ticketIdGenerator;
+        this.auditLogService = auditLogService;
+        this.conversationMessageService = conversationMessageService;
+        this.ticketContextService = ticketContextService;
+        this.agentStepLogService = agentStepLogService;
+        this.agentUnderstandingService = agentUnderstandingService;
+        this.clock = clock;
+    }
 
     @Override
     @Transactional
@@ -65,11 +103,13 @@ public class TicketServiceImpl implements TicketService {
                 .intent(TicketIntent.UNKNOWN)
                 .priority(priority)
                 .riskLevel(RiskLevel.LOW)
+                .version(0L)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
-        Ticket saved = ticketMapper.save(ticket);
-        ticketStatusHistoryMapper.save(TicketStatusHistory.builder()
+        ticketMapper.insert(ticket);
+        Ticket saved = ticket;
+        ticketStatusHistoryMapper.insert(TicketStatusHistory.builder()
                 .ticketId(saved.getTicketId())
                 .toStatus(TicketStatus.NEW)
                 .actorId(saved.getCreatorId())
@@ -86,13 +126,23 @@ public class TicketServiceImpl implements TicketService {
                 "TICKET",
                 saved.getTicketId(),
                 Map.of("status", saved.getStatus().name(), "priority", saved.getPriority().name()));
+        // 初始描述写入 conversation_message，后续 Agent 追问和前端回放都基于同一事实源。
+        conversationMessageService.appendMessage(
+                saved.getTicketId(),
+                ConversationRole.USER,
+                ConversationMessageType.TICKET_DESCRIPTION,
+                request.description().trim());
+        agentUnderstandingService.analyzeTicket(saved.getTicketId());
         return toTicketResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
     public TicketResponse getTicket(String ticketId) {
-        Ticket ticket = ticketMapper.findById(ticketId).orElseThrow(() -> new TicketNotFoundException(ticketId));
+        Ticket ticket = ticketMapper.selectById(ticketId);
+        if (ticket == null) {
+            throw new TicketNotFoundException(ticketId);
+        }
         return toTicketResponse(ticket);
     }
 
@@ -115,42 +165,70 @@ public class TicketServiceImpl implements TicketService {
     @Transactional
     public TicketResponse transitionStatus(String ticketId, TransitionTicketStatusRequest request) {
         validateTransitionRequest(request);
-        try {
-            Ticket ticket = ticketMapper.findById(ticketId).orElseThrow(() -> new TicketNotFoundException(ticketId));
-            if (request.expectedVersion() != null && request.expectedVersion() != ticket.getVersion()) {
-                throw new TicketConflictException(ticketId);
-            }
-            TicketStatus currentStatus = ticket.getStatus();
-            ticketStateMachineService.assertTransitionAllowed(currentStatus, request.targetStatus(), request.actorRole());
-            Instant now = Instant.now(clock);
-            // 先做显式版本比对，再依赖 JPA 乐观锁兜底，避免并发下静默覆盖。
-            ticket.transitionTo(request.targetStatus(), now);
-            Ticket saved = ticketMapper.saveAndFlush(ticket);
-            ticketStatusHistoryMapper.save(TicketStatusHistory.builder()
-                    .ticketId(ticketId)
-                    .fromStatus(currentStatus)
-                    .toStatus(request.targetStatus())
-                    .actorId(request.actorId().trim())
-                    .actorRole(request.actorRole())
-                    .comment(request.comment())
-                    .createdAt(now)
-                    .build());
-            auditLogService.record(
-                    ticketId,
-                    "USER",
-                    request.actorId().trim(),
-                    "TICKET_STATUS_CHANGED",
-                    "TICKET",
-                    ticketId,
-                    Map.of(
-                            "fromStatus", currentStatus.name(),
-                            "toStatus", request.targetStatus().name(),
-                            "actorRole", request.actorRole().name()));
-            return toTicketResponse(saved);
-        } catch (ObjectOptimisticLockingFailureException exception) {
-            // saveAndFlush 阶段若命中乐观锁异常，统一转换为业务层冲突错误。
+        Ticket ticket = ticketMapper.selectById(ticketId);
+        if (ticket == null) {
+            throw new TicketNotFoundException(ticketId);
+        }
+        if (request.expectedVersion() != null && request.expectedVersion() != ticket.getVersion()) {
             throw new TicketConflictException(ticketId);
         }
+        TicketStatus currentStatus = ticket.getStatus();
+        ticketStateMachineService.assertTransitionAllowed(currentStatus, request.targetStatus(), request.actorRole());
+        Instant now = Instant.now(clock);
+        // 先做显式版本比对，再依赖 MyBatis-Plus 乐观锁插件兜底，避免并发下静默覆盖。
+        ticket.transitionTo(request.targetStatus(), now);
+        int updatedRows = ticketMapper.updateById(ticket);
+        if (updatedRows == 0) {
+            throw new TicketConflictException(ticketId);
+        }
+        ticketStatusHistoryMapper.insert(TicketStatusHistory.builder()
+                .ticketId(ticketId)
+                .fromStatus(currentStatus)
+                .toStatus(request.targetStatus())
+                .actorId(request.actorId().trim())
+                .actorRole(request.actorRole())
+                .comment(request.comment())
+                .createdAt(now)
+                .build());
+        auditLogService.record(
+                ticketId,
+                "USER",
+                request.actorId().trim(),
+                "TICKET_STATUS_CHANGED",
+                "TICKET",
+                ticketId,
+                Map.of(
+                        "fromStatus", currentStatus.name(),
+                        "toStatus", request.targetStatus().name(),
+                        "actorRole", request.actorRole().name()));
+        Ticket saved = ticketMapper.selectById(ticketId);
+        return toTicketResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse appendMessage(String ticketId, AddConversationMessageRequest request) {
+        if (request == null || isBlank(request.content())) {
+            throw new TicketValidationException("content is required");
+        }
+        if (ticketMapper.selectById(ticketId) == null) {
+            throw new TicketNotFoundException(ticketId);
+        }
+        conversationMessageService.appendMessage(
+                ticketId,
+                ConversationRole.USER,
+                ConversationMessageType.USER_REPLY,
+                request.content().trim());
+        auditLogService.record(
+                ticketId,
+                "USER",
+                "USER_REPLY",
+                "TICKET_MESSAGE_ADDED",
+                "TICKET",
+                ticketId,
+                Map.of("messageLength", request.content().trim().length()));
+        agentUnderstandingService.analyzeTicket(ticketId);
+        return getTicket(ticketId);
     }
 
     private TicketResponse toTicketResponse(Ticket ticket) {
@@ -166,6 +244,9 @@ public class TicketServiceImpl implements TicketService {
                         history.getComment(),
                         history.getCreatedAt()))
                 .toList();
+        TicketContextResponse ticketContext = ticketContextService.getContext(ticket.getTicketId());
+        List<ConversationMessageResponse> conversationMessages = conversationMessageService.listMessages(ticket.getTicketId());
+        List<AgentStepLogResponse> agentStepLogs = agentStepLogService.listLogs(ticket.getTicketId());
         return new TicketResponse(
                 ticket.getTicketId(),
                 ticket.getTitle(),
@@ -173,14 +254,17 @@ public class TicketServiceImpl implements TicketService {
                 ticket.getCreatorId(),
                 ticket.getCreatorRole(),
                 ticket.getStatus(),
-                ticket.getIntent(),
+                ticketContext.intent(),
                 ticket.getPriority(),
-                ticket.getRiskLevel(),
+                ticketContext.riskLevel(),
                 ticket.getAssignedTo(),
                 ticket.getVersion(),
                 ticket.getCreatedAt(),
                 ticket.getUpdatedAt(),
                 ticket.getClosedAt(),
+                ticketContext,
+                conversationMessages,
+                agentStepLogs,
                 statusHistory);
     }
 

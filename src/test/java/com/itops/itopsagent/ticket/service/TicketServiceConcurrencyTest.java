@@ -9,7 +9,10 @@ import com.itops.itopsagent.entity.enums.TicketPriority;
 import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.entity.enums.UserRole;
 import com.itops.itopsagent.mapper.AuditLogMapper;
+import com.itops.itopsagent.mapper.AgentStepLogMapper;
+import com.itops.itopsagent.mapper.ConversationMessageMapper;
 import com.itops.itopsagent.mapper.TicketMapper;
+import com.itops.itopsagent.mapper.TicketContextMapper;
 import com.itops.itopsagent.mapper.TicketStatusHistoryMapper;
 import com.itops.itopsagent.service.TicketService;
 import com.itops.itopsagent.utils.exception.TicketConflictException;
@@ -39,13 +42,25 @@ class TicketServiceConcurrencyTest {
     @Autowired
     private AuditLogMapper auditLogMapper;
 
+    @Autowired
+    private AgentStepLogMapper agentStepLogMapper;
+
+    @Autowired
+    private ConversationMessageMapper conversationMessageMapper;
+
+    @Autowired
+    private TicketContextMapper ticketContextMapper;
+
     private ExecutorService executorService;
 
     @BeforeEach
     void setUp() {
-        auditLogMapper.deleteAll();
-        ticketStatusHistoryMapper.deleteAll();
-        ticketMapper.deleteAll();
+        auditLogMapper.deleteAllRecords();
+        agentStepLogMapper.deleteAllRecords();
+        conversationMessageMapper.deleteAllRecords();
+        ticketContextMapper.deleteAllRecords();
+        ticketStatusHistoryMapper.deleteAllRecords();
+        ticketMapper.deleteAllRecords();
         executorService = Executors.newFixedThreadPool(2);
     }
 

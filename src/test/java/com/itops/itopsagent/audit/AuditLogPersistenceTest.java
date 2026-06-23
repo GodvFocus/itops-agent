@@ -10,7 +10,10 @@ import com.itops.itopsagent.entity.enums.TicketPriority;
 import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.entity.enums.UserRole;
 import com.itops.itopsagent.mapper.AuditLogMapper;
+import com.itops.itopsagent.mapper.AgentStepLogMapper;
+import com.itops.itopsagent.mapper.ConversationMessageMapper;
 import com.itops.itopsagent.mapper.TicketMapper;
+import com.itops.itopsagent.mapper.TicketContextMapper;
 import com.itops.itopsagent.mapper.TicketStatusHistoryMapper;
 import com.itops.itopsagent.service.TicketService;
 import java.util.List;
@@ -34,11 +37,23 @@ class AuditLogPersistenceTest {
     @Autowired
     private AuditLogMapper auditLogMapper;
 
+    @Autowired
+    private AgentStepLogMapper agentStepLogMapper;
+
+    @Autowired
+    private ConversationMessageMapper conversationMessageMapper;
+
+    @Autowired
+    private TicketContextMapper ticketContextMapper;
+
     @BeforeEach
     void setUp() {
-        auditLogMapper.deleteAll();
-        ticketStatusHistoryMapper.deleteAll();
-        ticketMapper.deleteAll();
+        auditLogMapper.deleteAllRecords();
+        agentStepLogMapper.deleteAllRecords();
+        conversationMessageMapper.deleteAllRecords();
+        ticketContextMapper.deleteAllRecords();
+        ticketStatusHistoryMapper.deleteAllRecords();
+        ticketMapper.deleteAllRecords();
     }
 
     @Test

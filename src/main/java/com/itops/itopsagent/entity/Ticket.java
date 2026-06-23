@@ -1,17 +1,15 @@
 package com.itops.itopsagent.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import com.itops.itopsagent.entity.enums.RiskLevel;
 import com.itops.itopsagent.entity.enums.TicketIntent;
 import com.itops.itopsagent.entity.enums.TicketPriority;
 import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.entity.enums.UserRole;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import jakarta.persistence.Version;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -25,71 +23,58 @@ import lombok.Setter;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Entity
-@Table(name = "ticket")
+@TableName("ticket")
 public class Ticket {
 
     /** 工单唯一标识。 */
-    @Id
-    @Column(name = "ticket_id", nullable = false, length = 32)
+    @TableId(value = "ticket_id", type = IdType.INPUT)
     private String ticketId;
 
     /** 工单标题，通常用于列表页展示。 */
-    @Column(nullable = false, length = 200)
     private String title;
 
     /** 工单详细描述，记录用户提交的问题背景。 */
-    @Column(nullable = false, length = 4000)
     private String description;
 
     /** 工单创建人标识。 */
-    @Column(name = "creator_id", nullable = false, length = 64)
+    @TableField("creator_id")
     private String creatorId;
 
     /** 工单创建人角色。 */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "creator_role", nullable = false, length = 32)
+    @TableField("creator_role")
     private UserRole creatorRole;
 
     /** 当前工单状态，由状态机统一管理流转。 */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
     private TicketStatus status;
 
     /** 当前识别到的工单意图，Phase 1 默认使用 UNKNOWN。 */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
     private TicketIntent intent;
 
     /** 工单优先级。 */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 16)
     private TicketPriority priority;
 
     /** 风险等级，为后续审批与自动执行做准备。 */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "risk_level", nullable = false, length = 16)
+    @TableField("risk_level")
     private RiskLevel riskLevel;
 
     /** 当前指派处理人。 */
-    @Column(name = "assigned_to", length = 64)
+    @TableField("assigned_to")
     private String assignedTo;
 
     /** 乐观锁版本号，用于并发更新保护。 */
     @Version
-    @Column(nullable = false)
     private long version;
 
     /** 工单创建时间。 */
-    @Column(name = "created_at", nullable = false)
+    @TableField("created_at")
     private Instant createdAt;
 
     /** 最近一次更新时间。 */
-    @Column(name = "updated_at", nullable = false)
+    @TableField("updated_at")
     private Instant updatedAt;
 
     /** 工单进入关闭态时的时间。 */
-    @Column(name = "closed_at")
+    @TableField("closed_at")
     private Instant closedAt;
 
     /**

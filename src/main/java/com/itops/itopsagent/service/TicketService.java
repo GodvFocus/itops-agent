@@ -4,6 +4,7 @@ import com.itops.itopsagent.dto.CreateTicketRequest;
 import com.itops.itopsagent.dto.TicketResponse;
 import com.itops.itopsagent.dto.TicketSummaryResponse;
 import com.itops.itopsagent.dto.TransitionTicketStatusRequest;
+import com.itops.itopsagent.dto.AddConversationMessageRequest;
 import java.util.List;
 
 public interface TicketService {
@@ -15,4 +16,6 @@ public interface TicketService {
     List<TicketSummaryResponse> listTickets();
 
     TicketResponse transitionStatus(String ticketId, TransitionTicketStatusRequest request);
+
+    TicketResponse appendMessage(String ticketId, AddConversationMessageRequest request);
 }

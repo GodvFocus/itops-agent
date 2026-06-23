@@ -1,15 +1,11 @@
 package com.itops.itopsagent.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.entity.enums.UserRole;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
@@ -23,44 +19,39 @@ import lombok.Setter;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-@Entity
-@Table(name = "ticket_status_history")
+@TableName("ticket_status_history")
 public class TicketStatusHistory {
 
     /** 状态历史记录主键。 */
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     /** 关联的工单 ID。 */
-    @Column(name = "ticket_id", nullable = false, length = 32)
+    @TableField("ticket_id")
     private String ticketId;
 
     /** 变更前状态，创建工单时允许为空。 */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "from_status", length = 32)
+    @TableField("from_status")
     private TicketStatus fromStatus;
 
     /** 变更后状态。 */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "to_status", nullable = false, length = 32)
+    @TableField("to_status")
     private TicketStatus toStatus;
 
     /** 发起本次状态变更的操作者 ID。 */
-    @Column(name = "actor_id", nullable = false, length = 64)
+    @TableField("actor_id")
     private String actorId;
 
     /** 发起本次状态变更的操作者角色。 */
-    @Enumerated(EnumType.STRING)
-    @Column(name = "actor_role", nullable = false, length = 32)
+    @TableField("actor_role")
     private UserRole actorRole;
 
     /** 本次状态变更备注。 */
-    @Column(name = "comment_text", length = 1000)
+    @TableField("comment_text")
     private String comment;
 
     /** 状态变更发生时间。 */
-    @Column(name = "created_at", nullable = false)
+    @TableField("created_at")
     private Instant createdAt;
 
 }

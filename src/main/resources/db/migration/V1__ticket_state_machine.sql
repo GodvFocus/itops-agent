@@ -15,9 +15,6 @@ create table if not exists ticket (
     closed_at timestamp null
 );
 
-create index if not exists idx_ticket_status on ticket(status);
-create index if not exists idx_ticket_created_at on ticket(created_at);
-
 create table if not exists ticket_status_history (
     id bigint auto_increment primary key,
     ticket_id varchar(32) not null,
@@ -28,10 +25,8 @@ create table if not exists ticket_status_history (
     comment_text varchar(1000),
     created_at timestamp not null,
     constraint fk_ticket_status_history_ticket
-        foreign key (ticket_id) references ticket(ticket_id)
+        foreign key (ticket_id) references ticket(ticket_id) on delete cascade
 );
-
-create index if not exists idx_ticket_status_history_ticket_id on ticket_status_history(ticket_id, created_at);
 
 create table if not exists audit_log (
     id bigint auto_increment primary key,
@@ -44,7 +39,5 @@ create table if not exists audit_log (
     detail_json varchar(4000) not null,
     created_at timestamp not null,
     constraint fk_audit_log_ticket
-        foreign key (ticket_id) references ticket(ticket_id)
+        foreign key (ticket_id) references ticket(ticket_id) on delete cascade
 );
-
-create index if not exists idx_audit_log_ticket_id on audit_log(ticket_id, created_at);

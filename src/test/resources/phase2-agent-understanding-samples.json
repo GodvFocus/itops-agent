@@ -1,0 +1,233 @@
+[
+  {
+    "title": "OA 登录失败",
+    "description": "员工编号 U1001，今天登录 OA 提示账号已锁定。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1001", "targetSystem": "OA", "errorMessage": "账号已锁定" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "ERP 无法登录",
+    "description": "U1002 登录 ERP 报错 invalid credentials。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1002", "targetSystem": "ERP", "errorMessage": "invalid credentials" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "CRM 账号锁定",
+    "description": "我的工号是 U1003，CRM 提示账号已锁定。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1003", "targetSystem": "CRM", "errorMessage": "账号已锁定" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "SAP 登录异常",
+    "description": "员工 U1004 今天登录 SAP 报错密码错误。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1004", "targetSystem": "SAP", "errorMessage": "密码错误" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "邮箱登录失败",
+    "description": "U1005 无法登录邮箱，提示账号已锁定。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1005", "targetSystem": "EMAIL", "errorMessage": "账号已锁定" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "OA 无法访问",
+    "description": "工号 U1006 登录 OA 显示认证失败。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1006", "targetSystem": "OA", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "ERP 登录提示锁定",
+    "description": "员工编号 U1007，ERP 提示账号已锁定，早上开始出现。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1007", "targetSystem": "ERP", "errorMessage": "账号已锁定" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "Jira 登录失败",
+    "description": "U1008 登录 Jira 提示 invalid credentials。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1008", "targetSystem": "JIRA", "errorMessage": "invalid credentials" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "GitLab 无法登录",
+    "description": "U1009 登录 GitLab 提示账号已锁定。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "employeeId": "U1009", "targetSystem": "GITLAB", "errorMessage": "账号已锁定" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "登录问题待补充",
+    "description": "今天登录 OA 提示账号已锁定。",
+    "intent": "ACCOUNT_LOGIN_ISSUE",
+    "expectedSlots": { "targetSystem": "OA", "errorMessage": "账号已锁定" },
+    "expectedMissingSlots": ["employeeId"]
+  },
+  {
+    "title": "VPN 连接失败",
+    "description": "员工编号 U2001，Windows 电脑连接 VPN 提示认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2001", "deviceType": "WINDOWS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "Mac 连不上 VPN",
+    "description": "U2002 的 MacBook 连接 VPN 报错认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2002", "deviceType": "MAC", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "iPhone VPN 异常",
+    "description": "员工编号 U2003，iPhone 上 VPN 提示认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2003", "deviceType": "IOS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "Android VPN 失败",
+    "description": "U2004 使用 Android 手机连接 VPN 显示认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2004", "deviceType": "ANDROID", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "家庭网络下 VPN 失败",
+    "description": "U2005 在家庭宽带环境下用 Windows 连接 VPN 报错认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2005", "deviceType": "WINDOWS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "热点网络下 VPN 异常",
+    "description": "工号 U2006，用手机热点给电脑共享网络后，VPN 提示认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2006", "deviceType": "WINDOWS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "公司网络 VPN 异常",
+    "description": "U2007 在公司网络下使用 Windows 连接 VPN 报错认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2007", "deviceType": "WINDOWS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "VPN 失败且刚换手机",
+    "description": "员工编号 U2008，iPhone 连接 VPN 提示认证失败，刚换手机。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2008", "deviceType": "IOS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "VPN 报错待补设备",
+    "description": "工号 U2009，VPN 提示认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "employeeId": "U2009", "errorMessage": "认证失败" },
+    "expectedMissingSlots": ["deviceType"]
+  },
+  {
+    "title": "VPN 报错待补工号",
+    "description": "Windows 电脑连接 VPN 提示认证失败。",
+    "intent": "VPN_CONNECTION_ISSUE",
+    "expectedSlots": { "deviceType": "WINDOWS", "errorMessage": "认证失败" },
+    "expectedMissingSlots": ["employeeId"]
+  },
+  {
+    "title": "申请 ERP 只读权限",
+    "description": "员工编号 U3001，需要申请 ERP 只读权限两周，用于月底对账。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3001", "targetSystem": "ERP", "permissionLevel": "READ_ONLY", "reason": "月底对账", "duration": "两周" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 CRM 写入权限",
+    "description": "U3002 需要申请 CRM 写入权限3天，因为要录入客户资料。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3002", "targetSystem": "CRM", "permissionLevel": "READ_WRITE", "reason": "要录入客户资料", "duration": "3天" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 SAP 管理员权限",
+    "description": "员工编号 U3003，需要申请 SAP 管理员权限1周，用于生产切换。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3003", "targetSystem": "SAP", "permissionLevel": "ADMIN", "reason": "生产切换", "duration": "1周" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 Jira 只读权限",
+    "description": "U3004 需要申请 Jira 只读权限7天，用于审计查看。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3004", "targetSystem": "JIRA", "permissionLevel": "READ_ONLY", "reason": "审计查看", "duration": "7天" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 GitLab 写入权限",
+    "description": "员工编号 U3005，需要申请 GitLab 写入权限2周，因为要提交配置文件。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3005", "targetSystem": "GITLAB", "permissionLevel": "READ_WRITE", "reason": "要提交配置文件", "duration": "2周" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 OA 只读权限",
+    "description": "工号 U3006，需要申请 OA 只读权限1个月，用于部门交接。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3006", "targetSystem": "OA", "permissionLevel": "READ_ONLY", "reason": "部门交接", "duration": "1个月" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请邮箱管理员权限",
+    "description": "员工编号 U3007，需要申请邮箱管理员权限3天，因为要排查群组问题。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3007", "targetSystem": "EMAIL", "permissionLevel": "ADMIN", "reason": "要排查群组问题", "duration": "3天" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 BI 只读权限",
+    "description": "U3008 需要申请 BI 只读权限2周，用于经营分析。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3008", "targetSystem": "BI", "permissionLevel": "READ_ONLY", "reason": "经营分析", "duration": "2周" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 HR 系统只读权限",
+    "description": "员工编号 U3009，需要申请 HR系统 只读权限5天，用于人员盘点。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3009", "targetSystem": "HR系统", "permissionLevel": "READ_ONLY", "reason": "人员盘点", "duration": "5天" },
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "申请 ERP 权限待补原因",
+    "description": "U3010 需要申请 ERP 只读权限2周。",
+    "intent": "PERMISSION_REQUEST",
+    "expectedSlots": { "employeeId": "U3010", "targetSystem": "ERP", "permissionLevel": "READ_ONLY", "duration": "2周" },
+    "expectedMissingSlots": ["reason"]
+  },
+  {
+    "title": "会议室投影仪坏了",
+    "description": "会议室投影仪画面闪烁并有噪音。",
+    "intent": "UNKNOWN",
+    "expectedSlots": {},
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "打印机卡纸",
+    "description": "一楼打印机连续卡纸，影响打印。",
+    "intent": "UNKNOWN",
+    "expectedSlots": {},
+    "expectedMissingSlots": []
+  },
+  {
+    "title": "显示器黑屏",
+    "description": "工位显示器突然黑屏，重启后仍然无显示。",
+    "intent": "UNKNOWN",
+    "expectedSlots": {},
+    "expectedMissingSlots": []
+  }
+]

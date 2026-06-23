@@ -37,6 +37,12 @@ public record TicketResponse(
         Instant updatedAt,
         /** 关闭时间。 */
         Instant closedAt,
+        /** 结构化工单上下文。 */
+        TicketContextResponse ticketContext,
+        /** 对话消息。 */
+        List<ConversationMessageResponse> conversationMessages,
+        /** Agent 节点日志。 */
+        List<AgentStepLogResponse> agentStepLogs,
         /** 状态变更历史。 */
         List<TicketStatusHistoryResponse> statusHistory) {
 }

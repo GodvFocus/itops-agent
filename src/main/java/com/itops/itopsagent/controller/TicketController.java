@@ -1,5 +1,6 @@
 package com.itops.itopsagent.controller;
 
+import com.itops.itopsagent.dto.AddConversationMessageRequest;
 import com.itops.itopsagent.dto.CreateTicketRequest;
 import com.itops.itopsagent.dto.CreateTicketResponse;
 import com.itops.itopsagent.dto.TicketResponse;
@@ -44,5 +45,10 @@ public class TicketController {
     @PostMapping("/{ticketId}/status")
     public TicketResponse transitionStatus(@PathVariable String ticketId, @RequestBody TransitionTicketStatusRequest request) {
         return ticketService.transitionStatus(ticketId, request);
+    }
+
+    @PostMapping("/{ticketId}/messages")
+    public TicketResponse appendMessage(@PathVariable String ticketId, @RequestBody AddConversationMessageRequest request) {
+        return ticketService.appendMessage(ticketId, request);
     }
 }

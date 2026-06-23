@@ -9,9 +9,9 @@
 <body>
 <main class="shell">
     <section class="hero">
-        <p class="eyebrow">Phase 1 Ticket State Machine</p>
+        <p class="eyebrow">Phase 2 AI Understanding</p>
         <h1>ITOps Ticket Console</h1>
-        <p class="subtitle">创建工单、查看列表、查看详情并触发受控状态流转。</p>
+        <p class="subtitle">创建工单后，Agent 会自动识别意图、抽取关键槽位、在缺信息时追问，并把结构化上下文写回工单。</p>
     </section>
 
     <section class="panel">
@@ -63,6 +63,15 @@
         <article class="panel">
             <h2>工单详情</h2>
             <div id="ticket-detail" class="detail empty">选择左侧工单查看详情。</div>
+            <form id="message-form" class="grid hidden">
+                <input type="hidden" name="ticketId">
+                <label class="full">
+                    补充信息
+                    <textarea name="content" rows="3" placeholder="例如：我的员工编号是 U1001，设备是 Windows，错误提示是认证失败"></textarea>
+                </label>
+                <button type="submit">提交补充信息</button>
+            </form>
+            <p id="message-result" class="muted"></p>
             <form id="transition-form" class="grid hidden">
                 <input type="hidden" name="ticketId">
                 <input type="hidden" name="expectedVersion">
