@@ -2,239 +2,145 @@ package com.itops.itopsagent.service.harness;
 
 import com.itops.itopsagent.dto.CandidatePlanRequest;
 import com.itops.itopsagent.dto.HarnessDecisionResponse;
-import com.itops.itopsagent.dto.PlanStepRequest;
-import com.itops.itopsagent.utils.exception.TicketValidationException;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import com.itops.itopsagent.entity.enums.TicketStatus;
+import com.itops.itopsagent.entity.enums.ToolCallStatus;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import org.springframework.stereotype.Service;
 
 @Service
 public class HarnessPlanValidationService {
 
-    private static final Path TOOL_REGISTRY_PATH = Path.of("docs", "itops_agent_codex_task_pack", "contracts", "tool_registry.yaml");
-    private static final List<String> ALLOWED_ACTION_TYPES = List.of("READ", "WRITE", "APPROVAL_REQUIRED", "FORBIDDEN");
+    private final HarnessRiskEvaluator harnessRiskEvaluator;
+    private final HarnessPolicyEngine harnessPolicyEngine;
+    private final HarnessTicketStatePort harnessTicketStatePort;
+    private final HarnessToolCallLogService harnessToolCallLogService;
+    private final ToolTaskQueue toolTaskQueue;
+    private final ToolTaskProcessor toolTaskProcessor;
+    private final PlanExecutionTracker planExecutionTracker;
+
+    public HarnessPlanValidationService(
+            HarnessRiskEvaluator harnessRiskEvaluator,
+            HarnessPolicyEngine harnessPolicyEngine,
+            HarnessTicketStatePort harnessTicketStatePort,
+            HarnessToolCallLogService harnessToolCallLogService,
+            ToolTaskQueue toolTaskQueue,
+            ToolTaskProcessor toolTaskProcessor,
+            PlanExecutionTracker planExecutionTracker) {
+        this.harnessRiskEvaluator = harnessRiskEvaluator;
+        this.harnessPolicyEngine = harnessPolicyEngine;
+        this.harnessTicketStatePort = harnessTicketStatePort;
+        this.harnessToolCallLogService = harnessToolCallLogService;
+        this.toolTaskQueue = toolTaskQueue;
+        this.toolTaskProcessor = toolTaskProcessor;
+        this.planExecutionTracker = planExecutionTracker;
+    }
 
     public HarnessDecisionResponse validatePlan(CandidatePlanRequest request) {
-        validatePlanShape(request);
+        return evaluatePlan(request).response();
+    }
 
-        Map<String, ToolRegistryEntry> registry = loadToolRegistry();
-        List<Map<String, Object>> rejectedSteps = new ArrayList<>();
-        List<Map<String, Object>> approvedSteps = new ArrayList<>();
-        boolean hasApprovalStep = false;
-
-        for (PlanStepRequest step : request.steps()) {
-            Map<String, Object> validation = validateStep(step, registry);
-            if (Boolean.TRUE.equals(validation.get("rejected"))) {
-                rejectedSteps.add(validation);
-                continue;
-            }
-            approvedSteps.add(validation);
-            if (Boolean.TRUE.equals(step.requiredApproval())) {
-                hasApprovalStep = true;
-            }
+    public HarnessDecisionResponse executePlan(CandidatePlanRequest request) {
+        HarnessPlanEvaluation evaluation = evaluatePlan(request);
+        HarnessDecisionResponse response = evaluation.response();
+        if ("REJECTED".equals(response.decision())) {
+            logRejectedSteps(request, evaluation.rejectedSteps());
+            return response;
+        }
+        if ("ESCALATE".equals(response.decision())) {
+            ensurePlanValidating(request.ticketId());
+            harnessTicketStatePort.transition(request.ticketId(), TicketStatus.ESCALATED, "Harness 无法安全执行，已升级人工");
+            return response;
+        }
+        if ("NEED_APPROVAL".equals(response.decision())) {
+            ensurePlanValidating(request.ticketId());
+            logApprovalSteps(request, evaluation.approvalSteps());
+            harnessTicketStatePort.transition(request.ticketId(), TicketStatus.WAITING_APPROVAL, "Plan 触发审批门禁");
+            return response;
         }
 
-        if (!rejectedSteps.isEmpty()) {
-            return new HarnessDecisionResponse(
-                    request.ticketId(),
-                    request.planId(),
-                    "REJECTED",
-                    "NONE",
-                    "Plan 未通过 Harness 基础校验。",
-                    null,
-                    rejectedSteps,
-                    approvedSteps);
-        }
-        if (request.intent() != null && request.intent().name().equals("UNKNOWN")) {
-            return new HarnessDecisionResponse(
-                    request.ticketId(),
-                    request.planId(),
-                    "ESCALATE",
-                    "NONE",
-                    "UNKNOWN 工单不进入自动执行，建议升级人工。",
-                    null,
-                    List.of(),
-                    approvedSteps);
-        }
-        if (hasApprovalStep) {
-            return new HarnessDecisionResponse(
-                    request.ticketId(),
-                    request.planId(),
-                    "NEED_APPROVAL",
-                    "PAUSE",
-                    "Plan 包含高风险或审批步骤，需进入审批门禁。",
-                    "MANUAL_APPROVAL",
-                    List.of(),
-                    approvedSteps);
-        }
-        return new HarnessDecisionResponse(
-                request.ticketId(),
+        ensurePlanValidating(request.ticketId());
+        planExecutionTracker.register(
                 request.planId(),
-                "APPROVED",
-                "NONE",
-                "Plan 已通过 Phase 3 Harness stub 基础校验。",
-                null,
-                List.of(),
-                approvedSteps);
+                evaluation.executableSteps().stream().map(PlanStepAssessment::stepNo).collect(java.util.stream.Collectors.toSet()));
+        harnessTicketStatePort.transition(request.ticketId(), TicketStatus.EXECUTING, "Harness 已接管并开始异步执行工具");
+        for (PlanStepAssessment step : evaluation.executableSteps()) {
+            harnessToolCallLogService.record(
+                    request.ticketId(),
+                    request.planId(),
+                    step.stepNo(),
+                    step.tool(),
+                    step.action(),
+                    step.actionType(),
+                    step.idemKey(),
+                    ToolCallStatus.QUEUED,
+                    "APPROVED",
+                    step.params(),
+                    null,
+                    null,
+                    1);
+            toolTaskQueue.publish(new ToolExecutionTask(
+                    request.ticketId(),
+                    request.planId(),
+                    step.stepNo(),
+                    step.tool(),
+                    step.action(),
+                    step.actionType(),
+                    step.params(),
+                    step.idemKey(),
+                    1));
+        }
+        toolTaskProcessor.processPendingAsync();
+        return response;
     }
 
-    private void validatePlanShape(CandidatePlanRequest request) {
-        if (request == null) {
-            throw new TicketValidationException("Candidate Plan request cannot be null");
-        }
-        if (isBlank(request.planId()) || isBlank(request.ticketId()) || request.intent() == null || request.riskLevel() == null) {
-            throw new TicketValidationException("Candidate Plan 缺少必填字段");
-        }
-        if (request.steps() == null) {
-            throw new TicketValidationException("Candidate Plan steps cannot be null");
-        }
+    private HarnessPlanEvaluation evaluatePlan(CandidatePlanRequest request) {
+        TicketStatus currentStatus = harnessTicketStatePort.getCurrentStatus(request.ticketId());
+        List<PlanStepAssessment> assessments = harnessRiskEvaluator.evaluate(request, currentStatus);
+        return harnessPolicyEngine.buildEvaluation(request, assessments);
     }
 
-    private Map<String, Object> validateStep(PlanStepRequest step, Map<String, ToolRegistryEntry> registry) {
-        if (step == null || step.stepNo() == null || isBlank(step.tool()) || isBlank(step.action()) || step.params() == null
-                || step.riskLevel() == null || step.requiredApproval() == null || isBlank(step.reason())) {
-            return rejectedStep(step, "Step 缺少必填字段");
-        }
-        if (!ALLOWED_ACTION_TYPES.contains(step.actionType())) {
-            return rejectedStep(step, "Step actionType 不在合同范围内");
-        }
-
-        ToolRegistryEntry registryEntry = registry.get(step.tool() + "." + step.action());
-        if (registryEntry == null) {
-            return rejectedStep(step, "Step 使用了未注册工具");
-        }
-        if (!isActionTypeCompatible(step.actionType(), registryEntry.actionType())) {
-            return rejectedStep(step, "Step actionType 与 Tool Registry 不一致");
-        }
-        for (String requiredParam : registryEntry.requiredParams()) {
-            Object value = step.params().get(requiredParam);
-            if (value == null || (value instanceof String text && text.isBlank())) {
-                return rejectedStep(step, "Step 缺少必要参数: " + requiredParam);
-            }
-        }
-        if (registryEntry.requiresApproval() && !Boolean.TRUE.equals(step.requiredApproval())) {
-            return rejectedStep(step, "高风险步骤缺少 requiredApproval 标记");
-        }
-        if (registryEntry.isConditionalApproval()
-                && step.riskLevel().name().equals("HIGH")
-                && !Boolean.TRUE.equals(step.requiredApproval())) {
-            return rejectedStep(step, "条件审批步骤在高风险场景下缺少 requiredApproval");
-        }
-
-        Map<String, Object> approved = new LinkedHashMap<>();
-        approved.put("stepNo", step.stepNo());
-        approved.put("tool", step.tool());
-        approved.put("action", step.action());
-        approved.put("requiredApproval", step.requiredApproval());
-        return approved;
-    }
-
-    private boolean isActionTypeCompatible(String stepActionType, String registryActionType) {
-        if (Objects.equals(stepActionType, registryActionType)) {
-            return true;
-        }
-        return registryActionType.equals("WRITE") && stepActionType.equals("APPROVAL_REQUIRED");
-    }
-
-    private Map<String, ToolRegistryEntry> loadToolRegistry() {
-        try {
-            List<String> lines = Files.readAllLines(TOOL_REGISTRY_PATH);
-            List<ToolRegistryEntry> entries = new ArrayList<>();
-            Map<String, Object> current = new LinkedHashMap<>();
-            for (String line : lines) {
-                String stripped = line.trim();
-                if (stripped.isEmpty() || stripped.startsWith("#") || stripped.equals("tools:")) {
-                    continue;
-                }
-                if (stripped.startsWith("- ")) {
-                    if (!current.isEmpty()) {
-                        entries.add(toEntry(current));
-                    }
-                    current = new LinkedHashMap<>();
-                    stripped = stripped.substring(2).trim();
-                }
-                int separator = stripped.indexOf(':');
-                if (separator < 0) {
-                    continue;
-                }
-                String key = stripped.substring(0, separator).trim();
-                String value = stripped.substring(separator + 1).trim();
-                current.put(key, parseScalar(value));
-            }
-            if (!current.isEmpty()) {
-                entries.add(toEntry(current));
-            }
-
-            Map<String, ToolRegistryEntry> registry = new LinkedHashMap<>();
-            for (ToolRegistryEntry entry : entries) {
-                registry.put(entry.tool() + "." + entry.action(), entry);
-            }
-            return registry;
-        } catch (IOException exception) {
-            throw new IllegalStateException("Failed to read tool registry contract", exception);
+    private void ensurePlanValidating(String ticketId) {
+        TicketStatus currentStatus = harnessTicketStatePort.getCurrentStatus(ticketId);
+        if (currentStatus == TicketStatus.PLANNING) {
+            harnessTicketStatePort.transition(ticketId, TicketStatus.PLAN_VALIDATING, "Harness 开始校验 Candidate Plan");
         }
     }
 
-    private ToolRegistryEntry toEntry(Map<String, Object> raw) {
-        @SuppressWarnings("unchecked")
-        List<String> requiredParams = (List<String>) raw.getOrDefault("requiredParams", List.of());
-        return new ToolRegistryEntry(
-                String.valueOf(raw.get("tool")),
-                String.valueOf(raw.get("action")),
-                String.valueOf(raw.get("actionType")),
-                String.valueOf(raw.get("defaultRisk")),
-                requiredParams,
-                String.valueOf(raw.get("approvalRequired")));
-    }
-
-    private Object parseScalar(String value) {
-        if (value.startsWith("\"") && value.endsWith("\"")) {
-            return value.substring(1, value.length() - 1);
+    private void logRejectedSteps(CandidatePlanRequest request, List<PlanStepAssessment> rejectedSteps) {
+        for (PlanStepAssessment step : rejectedSteps) {
+            harnessToolCallLogService.record(
+                    request.ticketId(),
+                    request.planId(),
+                    step.stepNo(),
+                    step.tool(),
+                    step.action(),
+                    step.actionType(),
+                    step.idemKey(),
+                    ToolCallStatus.REJECTED,
+                    "REJECTED",
+                    step.params(),
+                    null,
+                    step.reason(),
+                    1);
         }
-        if (value.startsWith("[") && value.endsWith("]")) {
-            String inner = value.substring(1, value.length() - 1).trim();
-            if (inner.isEmpty()) {
-                return List.of();
-            }
-            return List.of(inner.split(",")).stream().map(item -> item.trim().replace("\"", "")).toList();
-        }
-        return value;
     }
 
-    private Map<String, Object> rejectedStep(PlanStepRequest step, String reason) {
-        Map<String, Object> rejected = new LinkedHashMap<>();
-        rejected.put("rejected", true);
-        rejected.put("stepNo", step == null ? null : step.stepNo());
-        rejected.put("tool", step == null ? null : step.tool());
-        rejected.put("action", step == null ? null : step.action());
-        rejected.put("reason", reason);
-        return rejected;
-    }
-
-    private boolean isBlank(String value) {
-        return value == null || value.isBlank();
-    }
-
-    private record ToolRegistryEntry(
-            String tool,
-            String action,
-            String actionType,
-            String defaultRisk,
-            List<String> requiredParams,
-            String approvalRequired) {
-
-        private boolean requiresApproval() {
-            return "true".equalsIgnoreCase(approvalRequired);
-        }
-
-        private boolean isConditionalApproval() {
-            return "conditional".equalsIgnoreCase(approvalRequired);
+    private void logApprovalSteps(CandidatePlanRequest request, List<PlanStepAssessment> approvalSteps) {
+        for (PlanStepAssessment step : approvalSteps) {
+            harnessToolCallLogService.record(
+                    request.ticketId(),
+                    request.planId(),
+                    step.stepNo(),
+                    step.tool(),
+                    step.action(),
+                    step.actionType(),
+                    step.idemKey(),
+                    ToolCallStatus.PENDING_APPROVAL,
+                    "NEED_APPROVAL",
+                    step.params(),
+                    null,
+                    step.reason(),
+                    1);
         }
     }
 }

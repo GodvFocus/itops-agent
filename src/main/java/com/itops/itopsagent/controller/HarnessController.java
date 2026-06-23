@@ -17,11 +17,18 @@ public class HarnessController {
     private final HarnessPlanValidationService harnessPlanValidationService;
 
     /**
-     * Phase 3 只做接收和基础校验。
-     * 这样可以先锁住 Agent 与 Harness 的契约，再把真实执行和审批放到 Phase 4。
+     * validate 只返回 Harness 裁决结果，方便前端或 Agent 先预览是否会被拦截或进入审批。
      */
     @PostMapping("/validate")
     public HarnessDecisionResponse validatePlan(@RequestBody CandidatePlanRequest request) {
         return harnessPlanValidationService.validatePlan(request);
+    }
+
+    /**
+     * execute 会在通过校验后把工具任务交给异步执行器，由 Java Harness 统一接管幂等、锁和审计。
+     */
+    @PostMapping("/execute")
+    public HarnessDecisionResponse executePlan(@RequestBody CandidatePlanRequest request) {
+        return harnessPlanValidationService.executePlan(request);
     }
 }
