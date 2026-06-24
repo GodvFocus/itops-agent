@@ -37,3 +37,5 @@ build/
 agent_runtime/.env
 __pycache__/
 *.pyc
+
+bash.exe.stackdump
