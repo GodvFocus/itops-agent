@@ -1,5 +1,9 @@
 package com.itops.itopsagent.service.impl;
 
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itops.itopsagent.dto.AgentContextResponse;
+import com.itops.itopsagent.dto.CandidatePlanRequest;
 import com.itops.itopsagent.dto.ConversationMessageResponse;
 import com.itops.itopsagent.dto.TicketContextResponse;
 import com.itops.itopsagent.dto.UpdateAgentContextRequest;
@@ -7,20 +11,14 @@ import com.itops.itopsagent.entity.Ticket;
 import com.itops.itopsagent.entity.enums.AgentStepStatus;
 import com.itops.itopsagent.entity.enums.ConversationMessageType;
 import com.itops.itopsagent.entity.enums.ConversationRole;
-import com.itops.itopsagent.entity.enums.RiskLevel;
 import com.itops.itopsagent.mapper.TicketMapper;
 import com.itops.itopsagent.service.AgentStepLogService;
 import com.itops.itopsagent.service.AgentUnderstandingService;
 import com.itops.itopsagent.service.ConversationMessageService;
 import com.itops.itopsagent.service.TicketContextService;
-import com.itops.itopsagent.service.agent.AgentContextSnapshot;
+import com.itops.itopsagent.service.agent.AgentRuntimeAnalysisResult;
 import com.itops.itopsagent.service.agent.ContextBuilder;
-import com.itops.itopsagent.service.agent.IntentClassificationResult;
-import com.itops.itopsagent.service.agent.IntentClassifier;
-import com.itops.itopsagent.service.agent.MissingSlotQuestionGenerator;
-import com.itops.itopsagent.service.agent.QuestionGenerationResult;
-import com.itops.itopsagent.service.agent.SlotExtractionResult;
-import com.itops.itopsagent.service.agent.SlotExtractor;
+import com.itops.itopsagent.service.agent.PythonAgentRuntimeClient;
 import com.itops.itopsagent.utils.exception.TicketNotFoundException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -29,8 +27,6 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import com.fasterxml.jackson.core.JacksonException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,9 +40,7 @@ public class AgentUnderstandingServiceImpl implements AgentUnderstandingService 
     private final ConversationMessageService conversationMessageService;
     private final AgentStepLogService agentStepLogService;
     private final ContextBuilder contextBuilder;
-    private final IntentClassifier intentClassifier;
-    private final SlotExtractor slotExtractor;
-    private final MissingSlotQuestionGenerator questionGenerator;
+    private final PythonAgentRuntimeClient pythonAgentRuntimeClient;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -58,50 +52,44 @@ public class AgentUnderstandingServiceImpl implements AgentUnderstandingService 
         }
         TicketContextResponse currentContext = ticketContextService.getContext(ticketId);
         List<ConversationMessageResponse> recentMessages = conversationMessageService.listRecentMessages(ticketId, 6);
-        AgentContextSnapshot snapshot = contextBuilder.buildSnapshot(ticket, currentContext, recentMessages);
-        String inputHash = hash(snapshot);
+        AgentContextResponse runtimeContext = contextBuilder.buildContextResponse(ticket, currentContext, recentMessages);
+        String inputHash = hash(runtimeContext);
 
         try {
-            IntentClassificationResult intentResult = intentClassifier.classify(snapshot);
-            recordSuccess(ticketId, "classify_intent", inputHash, Map.of(
-                    "intent", intentResult.intent().name(),
-                    "confidence", intentResult.confidence(),
-                    "reasoning", intentResult.reasoning()));
+            AgentRuntimeAnalysisResult runtimeResult = pythonAgentRuntimeClient.analyze(runtimeContext);
+            recordSuccess(ticketId, "classify_intent", inputHash, withRuntimeMeta(runtimeResult.intent(), runtimeResult.workflowMode()));
+            recordSuccess(ticketId, "extract_slots", inputHash, withRuntimeMeta(runtimeResult.slots(), runtimeResult.workflowMode()));
+            recordSuccess(ticketId, "generate_question", inputHash, withRuntimeMeta(runtimeResult.question(), runtimeResult.workflowMode()));
+            if (!runtimeResult.retrieval().isEmpty()) {
+                recordSuccess(ticketId, "retrieve_sop", inputHash, withRuntimeMeta(runtimeResult.retrieval(), runtimeResult.workflowMode()));
+            }
+            if (!runtimeResult.planSnapshot().isEmpty()) {
+                recordSuccess(ticketId, "generate_plan", inputHash, withRuntimeMeta(runtimeResult.planSnapshot(), runtimeResult.workflowMode()));
+            }
 
-            SlotExtractionResult slotResult = slotExtractor.extract(snapshot, intentResult.intent());
-            recordSuccess(ticketId, "extract_slots", inputHash, Map.of(
-                    "slots", slotResult.slots(),
-                    "missingSlots", slotResult.missingSlots(),
-                    "reasoning", slotResult.reasoning()));
-
-            QuestionGenerationResult questionResult = questionGenerator.generate(intentResult.intent(), slotResult.missingSlots());
-            recordSuccess(ticketId, "generate_question", inputHash, Map.of(
-                    "shouldAskUser", questionResult.shouldAskUser(),
-                    "question", questionResult.question(),
-                    "nextStep", questionResult.nextStep()));
-
+            CandidatePlanRequest candidatePlan = runtimeResult.candidatePlan();
             TicketContextResponse updatedContext = ticketContextService.saveContext(ticketId, new UpdateAgentContextRequest(
-                    intentResult.intent(),
-                    slotResult.slots(),
-                    slotResult.missingSlots(),
-                    List.of(),
-                    Map.of(),
-                    resolveRiskLevel(intentResult.intent()),
-                    questionResult.nextStep()));
+                    runtimeResult.resolvedIntent(),
+                    runtimeResult.knownSlots(),
+                    runtimeResult.missingSlots(),
+                    runtimeResult.matchedSopIds(),
+                    runtimeResult.planSnapshot(),
+                    runtimeResult.resolvedRiskLevel(),
+                    candidatePlan == null ? runtimeResult.nextStep() : "PLAN_READY"));
 
-            if (questionResult.shouldAskUser() && !questionResult.question().isBlank()) {
-                ConversationMessageType messageType = intentResult.intent().name().equals("UNKNOWN")
+            if (runtimeResult.shouldAskUser() && !runtimeResult.questionText().isBlank()) {
+                ConversationMessageType messageType = runtimeResult.resolvedIntent().name().equals("UNKNOWN")
                         ? ConversationMessageType.AGENT_ESCALATION
                         : ConversationMessageType.AGENT_FOLLOW_UP;
-                conversationMessageService.appendMessageIfChanged(ticketId, ConversationRole.AGENT, messageType, questionResult.question());
+                conversationMessageService.appendMessageIfChanged(ticketId, ConversationRole.AGENT, messageType, runtimeResult.questionText());
             } else {
-                String summary = buildSummaryMessage(updatedContext);
+                String summary = buildSummaryMessage(updatedContext, candidatePlan != null);
                 conversationMessageService.appendMessageIfChanged(ticketId, ConversationRole.AGENT, ConversationMessageType.AGENT_SUMMARY, summary);
             }
         } catch (RuntimeException exception) {
             agentStepLogService.record(
                     ticketId,
-                    "analyze_ticket",
+                    "python_agent_runtime",
                     inputHash,
                     Map.of("error", exception.getMessage()),
                     AgentStepStatus.FAILED,
@@ -114,22 +102,24 @@ public class AgentUnderstandingServiceImpl implements AgentUnderstandingService 
         agentStepLogService.record(ticketId, nodeName, inputHash, output, AgentStepStatus.SUCCESS, null);
     }
 
-    private String buildSummaryMessage(TicketContextResponse context) {
-        return "已识别为 " + context.intent().name() + "，关键槽位已满足当前阶段要求，可进入后续处理。";
+    private Map<String, Object> withRuntimeMeta(Map<String, Object> payload, String workflowMode) {
+        Map<String, Object> enriched = new LinkedHashMap<>(payload);
+        enriched.put("workflowMode", workflowMode);
+        enriched.put("runtime", "python");
+        return enriched;
     }
 
-    private RiskLevel resolveRiskLevel(com.itops.itopsagent.entity.enums.TicketIntent intent) {
-        return switch (intent) {
-            case PERMISSION_REQUEST -> RiskLevel.MEDIUM;
-            case UNKNOWN -> RiskLevel.MEDIUM;
-            case ACCOUNT_LOGIN_ISSUE, VPN_CONNECTION_ISSUE -> RiskLevel.LOW;
-        };
+    private String buildSummaryMessage(TicketContextResponse context, boolean planReady) {
+        if (planReady) {
+            return "已识别为 " + context.intent().name() + "，并由 Python Runtime 生成 Candidate Plan，已交给 Java Harness 继续裁决。";
+        }
+        return "已识别为 " + context.intent().name() + "，关键信息已满足当前理解阶段要求。";
     }
 
-    private String hash(AgentContextSnapshot snapshot) {
+    private String hash(AgentContextResponse runtimeContext) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] raw = digest.digest(objectMapper.writeValueAsString(snapshot).getBytes(StandardCharsets.UTF_8));
+            byte[] raw = digest.digest(objectMapper.writeValueAsString(runtimeContext).getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(raw);
         } catch (NoSuchAlgorithmException | JacksonException exception) {
             throw new IllegalStateException("Failed to hash agent context", exception);
