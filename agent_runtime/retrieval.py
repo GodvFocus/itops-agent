@@ -6,8 +6,8 @@ from dataclasses import dataclass
 from functools import lru_cache
 import hashlib
 import math
-from typing import Any
 import re
+from typing import Any
 
 from agent_runtime.config import get_runtime_settings
 from agent_runtime.models import SopMatch, SopMetadata, SopRetrievalResult
@@ -53,7 +53,7 @@ class QdrantPoint:
 
 
 class InMemoryQdrantCollection:
-    """本地兜底实现保持 Qdrant 的 upsert/search 语义，方便后续切换真实服务。"""
+    """本地兜底实现保持 Qdrant 的 upsert/search 语义，便于后续切换真实服务。"""
 
     def __init__(self):
         self._points: dict[str, QdrantPoint] = {}
@@ -73,7 +73,7 @@ class InMemoryQdrantCollection:
 
 class QdrantCompatibleVectorStore:
     """
-    优先尝试连接真实 Qdrant；
+    优先尝试连接真实 Qdrant。
     本地没有 client 或没有 URL 时回退到内存实现，保证 phase 3 在离线环境也能验收。
     """
 
@@ -166,7 +166,6 @@ class SopRetriever:
             sop = SopMetadata.model_validate(point.payload)
             score = point.score
             if sop.intent != context.get("intent"):
-                # 意图错层时要明显降权，避免系统名关键词把检索拉到错误 SOP。
                 score -= 0.85
             boost, matched_conditions = self._boost_score(sop, context, query_text)
             score += boost
@@ -219,49 +218,76 @@ class SopRetriever:
         return "\n".join(parts)
 
     def _boost_score(self, sop: SopMetadata, context: dict[str, Any], query_text: str) -> tuple[float, list[str]]:
-        text_upper = query_text.upper()
+        lower = query_text.lower()
         matched_conditions: list[str] = []
         boost = 0.0
         known_slots = context.get("known_slots", {})
         target_system = str(known_slots.get("targetSystem", "")).upper()
         permission_level = str(known_slots.get("permissionLevel", "")).upper()
+        device_type = str(known_slots.get("deviceType", "")).upper()
+        mfa_changed = bool(known_slots.get("mfaRecentlyChanged"))
 
         def hit(*tokens: str) -> bool:
-            return any(token.upper() in text_upper for token in tokens)
+            return any(token.lower() in lower for token in tokens)
 
-        if sop.sop_id == "SOP-ACC-LOCKED-001" and hit("锁定", "LOCKED"):
+        is_email = target_system == "EMAIL" or hit("邮箱", "邮件", "email", "exchange")
+        is_locked = hit("锁定", "locked", "账号已锁定", "账号被锁定", "账户已锁定", "账户被锁定")
+        is_login_error = hit("invalid credentials", "密码错误", "登录失败", "sign in failed")
+        is_vpn_auth_fail = "vpn" in lower and hit("认证失败", "authentication failed", "无法连接", "连不上")
+        is_vpn_perm_missing = "vpn" in lower and hit("未开通", "无权限", "access denied")
+        is_prod_or_sensitive = hit("生产", "prod", "线上", "敏感")
+        is_explicit_mfa_change = hit("换绑", "重绑", "重新绑定", "验证器", "重置mfa", "reset mfa")
+
+        if sop.sop_id == "SOP-EMAIL-LOGIN-MANUAL-001" and is_email:
+            matched_conditions.append("邮箱登录问题")
+            boost += 1.45
+
+        if sop.sop_id == "SOP-ACC-LOCKED-001" and is_locked and not is_email:
             matched_conditions.append("账号锁定")
-            boost += 0.8
-        if sop.sop_id == "SOP-ACC-LOGIN-ABNORMAL-001" and hit("INVALID CREDENTIALS", "密码错误", "登录失败"):
+            boost += 1.2
+
+        if sop.sop_id == "SOP-ACC-LOGIN-ABNORMAL-001" and is_login_error and not is_locked and not is_email:
             matched_conditions.append("登录异常")
-            boost += 0.95
-        if sop.sop_id == "SOP-VPN-AUTH-FAIL-001" and hit("VPN", "认证失败", "无法连接"):
+            boost += 1.0
+
+        if sop.sop_id == "SOP-VPN-AUTH-FAIL-001" and is_vpn_auth_fail:
             matched_conditions.append("VPN 认证失败")
-            boost += 0.75
-        if sop.sop_id == "SOP-VPN-PERM-MISSING-001" and hit("VPN", "未开通", "无权限", "ACCESS DENIED"):
+            boost += 0.8
+            if mfa_changed:
+                matched_conditions.append("存在 MFA 异常线索")
+                boost += 0.1
+
+        if sop.sop_id == "SOP-VPN-PERM-MISSING-001" and is_vpn_perm_missing:
             matched_conditions.append("VPN 权限缺失")
-            boost += 0.85
-        if sop.sop_id == "SOP-MFA-DEVICE-CHANGE-001" and hit("MFA", "更换手机", "换绑", "刚换手机", "验证器"):
-            matched_conditions.append("MFA 设备更换")
-            boost += 0.95
-        if sop.sop_id == "SOP-PERM-JIRA-STANDARD-001" and target_system == "JIRA":
-            matched_conditions.append("Jira 权限申请")
-            boost += 1.0
-        if sop.sop_id == "SOP-PERM-GITLAB-STANDARD-001" and target_system == "GITLAB":
-            matched_conditions.append("GitLab 权限申请")
-            boost += 1.0
-        if sop.sop_id == "SOP-PERM-PROD-ADMIN-001" and hit("生产", "PROD", "上线") and permission_level == "ADMIN":
-            matched_conditions.append("生产系统管理员权限")
-            boost += 1.0
-        if sop.sop_id == "SOP-EMAIL-LOGIN-MANUAL-001" and hit("邮箱", "EMAIL"):
-            matched_conditions.append("邮箱登录")
-            boost += 0.85
-        if sop.sop_id == "SOP-PERM-HIGH-RISK-APPROVAL-001" and permission_level == "ADMIN":
-            matched_conditions.append("高风险权限审批")
             boost += 1.05
-            if hit("生产", "PROD"):
-                matched_conditions.append("生产环境")
-                boost += 0.35
+
+        if sop.sop_id == "SOP-MFA-DEVICE-CHANGE-001" and (
+            is_explicit_mfa_change or (mfa_changed and device_type in {"IOS", "ANDROID"})
+        ):
+            matched_conditions.append("MFA 设备变更")
+            boost += 1.35
+            if hit("vpn", "认证失败"):
+                matched_conditions.append("伴随 VPN 认证失败")
+                boost += 0.25
+
+        if sop.sop_id == "SOP-PERM-JIRA-STANDARD-001" and target_system == "JIRA" and permission_level != "ADMIN":
+            matched_conditions.append("Jira 普通权限申请")
+            boost += 1.1
+
+        if sop.sop_id == "SOP-PERM-GITLAB-STANDARD-001" and target_system == "GITLAB" and permission_level != "ADMIN":
+            matched_conditions.append("GitLab 普通权限申请")
+            boost += 1.1
+
+        if sop.sop_id == "SOP-PERM-PROD-ADMIN-001" and permission_level == "ADMIN" and is_prod_or_sensitive:
+            matched_conditions.append("生产系统管理员权限")
+            boost += 0.95
+
+        if sop.sop_id == "SOP-PERM-HIGH-RISK-APPROVAL-001" and permission_level == "ADMIN":
+            matched_conditions.append("高风险管理员权限")
+            boost += 1.25
+            if is_prod_or_sensitive:
+                matched_conditions.append("生产或敏感环境")
+                boost += 0.45
 
         return boost, matched_conditions
 

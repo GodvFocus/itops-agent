@@ -72,3 +72,6 @@ itops:
       model: ${ITOPS_CHAT_MODEL:mock-chat}
       endpoint: ${ITOPS_CHAT_ENDPOINT:}
       api-key: ${ITOPS_CHAT_API_KEY:}
+  agent-runtime:
+    python-executable: ${ITOPS_AGENT_PYTHON_EXECUTABLE:D:/anaconda3/envs/lc/python.exe}
+    timeout: ${ITOPS_AGENT_RUNTIME_TIMEOUT:15s}

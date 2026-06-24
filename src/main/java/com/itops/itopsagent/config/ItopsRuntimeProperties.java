@@ -19,6 +19,7 @@ public class ItopsRuntimeProperties {
     private final Harness harness = new Harness();
     private final Integrations integrations = new Integrations();
     private final Ai ai = new Ai();
+    private final AgentRuntime agentRuntime = new AgentRuntime();
 
     @Getter
     @Setter
@@ -86,5 +87,14 @@ public class ItopsRuntimeProperties {
         private String model = "";
         private String endpoint = "";
         private String apiKey = "";
+    }
+
+    @Getter
+    @Setter
+    public static class AgentRuntime {
+        /** 默认直接使用项目约定的 Anaconda 虚拟环境解释器。 */
+        private String pythonExecutable = "D:/anaconda3/envs/lc/python.exe";
+        /** 给 Python Runtime 一个明确超时，避免请求线程无限挂起。 */
+        private Duration timeout = Duration.ofSeconds(15);
     }
 }

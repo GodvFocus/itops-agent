@@ -181,7 +181,7 @@ class TicketControllerIntegrationTest {
                 .andExpect(jsonPath("$.ticketContext.intent", is("PERMISSION_REQUEST")))
                 .andExpect(jsonPath("$.ticketContext.missingSlots", hasSize(0)))
                 .andExpect(jsonPath("$.conversationMessages[3].messageType", is("AGENT_SUMMARY")))
-                .andExpect(jsonPath("$.agentStepLogs", hasSize(6)));
+                .andExpect(jsonPath("$.agentStepLogs", hasSize(8)));
     }
 
     @Test

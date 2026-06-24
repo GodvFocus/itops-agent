@@ -1,9 +1,13 @@
 package com.itops.itopsagent.harness.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itops.itopsagent.dto.ApprovalTaskResponse;
+import com.itops.itopsagent.dto.CandidatePlanRequest;
 import com.itops.itopsagent.entity.IdempotencyRecord;
 import com.itops.itopsagent.entity.ToolCallLog;
+import com.itops.itopsagent.entity.enums.ApprovalStatus;
 import com.itops.itopsagent.entity.enums.TicketStatus;
+import com.itops.itopsagent.service.ApprovalTaskStoreService;
 import com.itops.itopsagent.service.harness.HarnessIdempotencyService;
 import com.itops.itopsagent.service.harness.HarnessPlanValidationService;
 import com.itops.itopsagent.service.harness.HarnessPolicyEngine;
@@ -13,7 +17,6 @@ import com.itops.itopsagent.service.harness.HarnessToolCallLogService;
 import com.itops.itopsagent.service.harness.IdempotencyRecordStore;
 import com.itops.itopsagent.service.harness.InMemoryTicketExecutionLockService;
 import com.itops.itopsagent.service.harness.MockEnterpriseToolGateway;
-import com.itops.itopsagent.service.harness.MyBatisIdempotencyRecordStore;
 import com.itops.itopsagent.service.harness.PlanExecutionTracker;
 import com.itops.itopsagent.service.harness.TicketExecutionLockService;
 import com.itops.itopsagent.service.harness.ToolCallLogStore;
@@ -44,6 +47,7 @@ public final class HarnessTestSupport implements AutoCloseable {
     public final PlanExecutionTracker planExecutionTracker = new PlanExecutionTracker();
     public final Clock clock = Clock.fixed(Instant.parse("2026-06-23T08:00:00Z"), ZoneOffset.UTC);
     public final ObjectMapper objectMapper = new ObjectMapper();
+    public final InMemoryApprovalTaskStore approvalTaskStore = new InMemoryApprovalTaskStore(clock);
     public final HarnessToolCallLogService logService = new HarnessToolCallLogService(logStore, objectMapper, clock);
     public final HarnessIdempotencyService idempotencyService = new HarnessIdempotencyService(idempotencyStore, objectMapper, clock);
     public final ToolGateway toolGateway;
@@ -66,7 +70,8 @@ public final class HarnessTestSupport implements AutoCloseable {
                 logService,
                 queue,
                 processor,
-                planExecutionTracker);
+                planExecutionTracker,
+                approvalTaskStore);
     }
 
     @Override
@@ -134,6 +139,74 @@ public final class HarnessTestSupport implements AutoCloseable {
 
         public List<ToolCallLog> logs() {
             return logs;
+        }
+    }
+
+    public static final class InMemoryApprovalTaskStore implements ApprovalTaskStoreService {
+
+        private final Clock clock;
+        private final Map<String, ApprovalTaskResponse> tasks = new ConcurrentHashMap<>();
+        private final Map<String, CandidatePlanRequest> plans = new ConcurrentHashMap<>();
+
+        public InMemoryApprovalTaskStore(Clock clock) {
+            this.clock = clock;
+        }
+
+        @Override
+        public ApprovalTaskResponse createPendingTask(String ticketId, CandidatePlanRequest plan, String requestedReason, List<Map<String, Object>> approvalSteps) {
+            return tasks.computeIfAbsent(ticketId + ":" + plan.planId(), key -> {
+                Instant now = Instant.now(clock);
+                ApprovalTaskResponse task = new ApprovalTaskResponse(
+                        "APR-TEST-" + Integer.toHexString(key.hashCode()).toUpperCase(),
+                        ticketId,
+                        plan.planId(),
+                        ApprovalStatus.PENDING,
+                        "MANUAL_APPROVAL",
+                        "HARNESS",
+                        requestedReason,
+                        null,
+                        null,
+                        Map.of("planId", plan.planId()),
+                        approvalSteps,
+                        now,
+                        null,
+                        now);
+                plans.put(task.approvalId(), plan);
+                return task;
+            });
+        }
+
+        @Override
+        public List<ApprovalTaskResponse> listAll() {
+            return tasks.values().stream().toList();
+        }
+
+        @Override
+        public List<ApprovalTaskResponse> listByTicketId(String ticketId) {
+            return tasks.values().stream().filter(task -> ticketId.equals(task.ticketId())).toList();
+        }
+
+        @Override
+        public ApprovalTaskResponse getByApprovalId(String approvalId) {
+            return tasks.values().stream()
+                    .filter(task -> approvalId.equals(task.approvalId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Approval task not found: " + approvalId));
+        }
+
+        @Override
+        public ApprovalTaskResponse markApproved(String approvalId, String approverId, String comment) {
+            throw new UnsupportedOperationException("Test store does not need approval mutation");
+        }
+
+        @Override
+        public ApprovalTaskResponse markRejected(String approvalId, String approverId, String comment) {
+            throw new UnsupportedOperationException("Test store does not need approval mutation");
+        }
+
+        @Override
+        public CandidatePlanRequest getPlan(String approvalId) {
+            return plans.get(approvalId);
         }
     }
 }

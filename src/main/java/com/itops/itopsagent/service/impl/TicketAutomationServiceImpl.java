@@ -1,24 +1,21 @@
 package com.itops.itopsagent.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itops.itopsagent.dto.CandidatePlanRequest;
 import com.itops.itopsagent.dto.HarnessDecisionResponse;
 import com.itops.itopsagent.dto.TicketContextResponse;
-import com.itops.itopsagent.dto.UpdateAgentContextRequest;
 import com.itops.itopsagent.entity.Ticket;
 import com.itops.itopsagent.entity.enums.ConversationMessageType;
 import com.itops.itopsagent.entity.enums.ConversationRole;
 import com.itops.itopsagent.entity.enums.TicketIntent;
 import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.mapper.TicketMapper;
-import com.itops.itopsagent.service.ApprovalTaskStoreService;
 import com.itops.itopsagent.service.ConversationMessageService;
 import com.itops.itopsagent.service.TicketAutomationService;
 import com.itops.itopsagent.service.TicketContextService;
-import com.itops.itopsagent.service.agent.SopPlanService;
 import com.itops.itopsagent.service.harness.HarnessPlanValidationService;
 import com.itops.itopsagent.service.harness.HarnessTicketStatePort;
 import com.itops.itopsagent.utils.exception.TicketNotFoundException;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,8 +29,7 @@ public class TicketAutomationServiceImpl implements TicketAutomationService {
     private final ConversationMessageService conversationMessageService;
     private final HarnessTicketStatePort harnessTicketStatePort;
     private final HarnessPlanValidationService harnessPlanValidationService;
-    private final ApprovalTaskStoreService approvalTaskStoreService;
-    private final SopPlanService sopPlanService;
+    private final ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -55,15 +51,20 @@ public class TicketAutomationServiceImpl implements TicketAutomationService {
             return;
         }
 
+        CandidatePlanRequest plan = restorePlan(context);
         moveToPlanning(ticketId, ticket.getStatus());
-        Ticket refreshed = ticketMapper.selectById(ticketId);
-        SopPlanService.PlanBuildResult buildResult = sopPlanService.buildPlan(refreshed, context);
-        persistPlanContext(ticketId, context, buildResult);
+        if (plan == null || plan.steps() == null || plan.steps().isEmpty()) {
+            moveToManualTakeover(ticketId, TicketStatus.PLANNING, "Python Agent 未生成有效 Candidate Plan，已转人工处理");
+            conversationMessageService.appendMessageIfChanged(
+                    ticketId,
+                    ConversationRole.AGENT,
+                    ConversationMessageType.AGENT_ESCALATION,
+                    "Python Runtime 未生成有效 Candidate Plan，工单已转人工继续处理。");
+            return;
+        }
 
-        CandidatePlanRequest plan = buildResult.plan();
         HarnessDecisionResponse response = harnessPlanValidationService.executePlan(plan);
         if ("NEED_APPROVAL".equals(response.decision())) {
-            approvalTaskStoreService.createPendingTask(ticketId, plan, response.reason(), response.approvedSteps());
             conversationMessageService.appendMessageIfChanged(
                     ticketId,
                     ConversationRole.AGENT,
@@ -83,18 +84,7 @@ public class TicketAutomationServiceImpl implements TicketAutomationService {
                 ticketId,
                 ConversationRole.AGENT,
                 ConversationMessageType.AGENT_SUMMARY,
-                "已生成候选计划并交给 Harness 执行，请等待处理结果。");
-    }
-
-    private void persistPlanContext(String ticketId, TicketContextResponse context, SopPlanService.PlanBuildResult buildResult) {
-        ticketContextService.saveContext(ticketId, new UpdateAgentContextRequest(
-                context.intent(),
-                context.slots(),
-                List.of(),
-                buildResult.matchedSopIds(),
-                buildResult.planSnapshot(),
-                buildResult.plan().riskLevel(),
-                "PLAN_READY"));
+                "已生成 Candidate Plan 并交给 Harness 执行，请等待处理结果。");
     }
 
     private void moveToNeedMoreInfo(String ticketId, TicketStatus currentStatus) {
@@ -142,5 +132,15 @@ public class TicketAutomationServiceImpl implements TicketAutomationService {
                 || status == TicketStatus.CLOSED
                 || status == TicketStatus.MANUAL_TAKEOVER
                 || status == TicketStatus.ESCALATED;
+    }
+
+    private CandidatePlanRequest restorePlan(TicketContextResponse context) {
+        if (context.currentPlan() == null || context.currentPlan().isEmpty()) {
+            return null;
+        }
+        @SuppressWarnings("unchecked")
+        var normalized = objectMapper.convertValue(context.currentPlan(), java.util.Map.class);
+        normalized.remove("selectedSopId");
+        return objectMapper.convertValue(normalized, CandidatePlanRequest.class);
     }
 }

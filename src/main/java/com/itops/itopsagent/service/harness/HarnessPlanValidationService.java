@@ -4,6 +4,7 @@ import com.itops.itopsagent.dto.CandidatePlanRequest;
 import com.itops.itopsagent.dto.HarnessDecisionResponse;
 import com.itops.itopsagent.entity.enums.TicketStatus;
 import com.itops.itopsagent.entity.enums.ToolCallStatus;
+import com.itops.itopsagent.service.ApprovalTaskStoreService;
 import java.util.List;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +18,7 @@ public class HarnessPlanValidationService {
     private final ToolTaskQueue toolTaskQueue;
     private final ToolTaskProcessor toolTaskProcessor;
     private final PlanExecutionTracker planExecutionTracker;
+    private final ApprovalTaskStoreService approvalTaskStoreService;
 
     public HarnessPlanValidationService(
             HarnessRiskEvaluator harnessRiskEvaluator,
@@ -25,7 +27,8 @@ public class HarnessPlanValidationService {
             HarnessToolCallLogService harnessToolCallLogService,
             ToolTaskQueue toolTaskQueue,
             ToolTaskProcessor toolTaskProcessor,
-            PlanExecutionTracker planExecutionTracker) {
+            PlanExecutionTracker planExecutionTracker,
+            ApprovalTaskStoreService approvalTaskStoreService) {
         this.harnessRiskEvaluator = harnessRiskEvaluator;
         this.harnessPolicyEngine = harnessPolicyEngine;
         this.harnessTicketStatePort = harnessTicketStatePort;
@@ -33,6 +36,7 @@ public class HarnessPlanValidationService {
         this.toolTaskQueue = toolTaskQueue;
         this.toolTaskProcessor = toolTaskProcessor;
         this.planExecutionTracker = planExecutionTracker;
+        this.approvalTaskStoreService = approvalTaskStoreService;
     }
 
     public HarnessDecisionResponse validatePlan(CandidatePlanRequest request) {
@@ -54,6 +58,11 @@ public class HarnessPlanValidationService {
         if ("NEED_APPROVAL".equals(response.decision())) {
             ensurePlanValidating(request.ticketId());
             logApprovalSteps(request, evaluation.approvalSteps());
+            approvalTaskStoreService.createPendingTask(
+                    request.ticketId(),
+                    request,
+                    response.reason(),
+                    evaluation.approvalSteps().stream().map(PlanStepAssessment::toResponseMap).toList());
             harnessTicketStatePort.transition(request.ticketId(), TicketStatus.WAITING_APPROVAL, "Plan 触发审批门禁");
             return response;
         }

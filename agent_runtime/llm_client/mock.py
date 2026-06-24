@@ -1,4 +1,4 @@
-"""Phase 2 使用规则驱动的 Mock LLM，先确保节点输入输出契约稳定。"""
+"""使用规则驱动的 Mock LLM，优先保证节点契约与演示链路稳定。"""
 
 from __future__ import annotations
 
@@ -7,66 +7,68 @@ from dataclasses import dataclass
 
 from agent_runtime.llm_client.base import LLMRequest
 
+_CHINESE_SLOT_LABELS = {
+    "employeeId": "员工编号",
+    "targetSystem": "目标系统",
+    "deviceType": "设备类型",
+    "errorMessage": "报错信息",
+    "permissionLevel": "权限级别",
+    "reason": "申请原因",
+    "duration": "申请时长",
+}
+
 
 @dataclass(slots=True)
 class MockLLMClient:
     def invoke(self, request: LLMRequest) -> dict:
-        text = _build_text(request.context).lower()
+        text = _build_text(request.context)
+        lower = text.lower()
+
         if request.node_name == "classify_intent":
-            if "vpn" in text:
-                return {"intent": "VPN_CONNECTION_ISSUE", "confidence": 0.97, "reasoning": "命中 VPN 关键词"}
-            if any(token in text for token in ("权限", "permission", "grant access", "开通")):
-                return {"intent": "PERMISSION_REQUEST", "confidence": 0.95, "reasoning": "命中权限申请关键词"}
-            if any(token in text for token in ("登录", "login", "sign in", "账号", "锁定", "password", "invalid credentials")):
-                return {"intent": "ACCOUNT_LOGIN_ISSUE", "confidence": 0.91, "reasoning": "命中登录异常关键词"}
+            if "vpn" in lower:
+                return {"intent": "VPN_CONNECTION_ISSUE", "confidence": 0.97, "reasoning": "命中 VPN 关键字"}
+            if any(
+                token in lower
+                for token in (
+                    "权限",
+                    "permission",
+                    "grant access",
+                    "开通",
+                    "管理员权限",
+                    "admin",
+                    "administrator",
+                    "只读",
+                    "read only",
+                    "read-only",
+                    "写入",
+                    "read write",
+                    "read-write",
+                )
+            ):
+                return {"intent": "PERMISSION_REQUEST", "confidence": 0.95, "reasoning": "命中权限申请关键字"}
+            if any(
+                token in lower
+                for token in (
+                    "登录",
+                    "login",
+                    "sign in",
+                    "账号",
+                    "账户",
+                    "邮箱",
+                    "email",
+                    "邮件",
+                    "锁定",
+                    "locked",
+                    "password",
+                    "invalid credentials",
+                )
+            ):
+                return {"intent": "ACCOUNT_LOGIN_ISSUE", "confidence": 0.91, "reasoning": "命中登录异常关键字"}
             return {"intent": "UNKNOWN", "confidence": 0.52, "reasoning": "未命中 MVP 支持范围"}
 
         if request.node_name == "extract_slots":
             intent = request.context.get("intent", "UNKNOWN")
-            slots = {}
-            employee = re.search(r"\b([A-Z]\d{4,})\b", _build_text(request.context), re.IGNORECASE)
-            system = re.search(r"(OA|ERP|CRM|SAP|JIRA|GITLAB|EMAIL|邮箱|BI|HR系统)", _build_text(request.context), re.IGNORECASE)
-            if employee:
-                slots["employeeId"] = employee.group(1).upper()
-            if system:
-                slots["targetSystem"] = system.group(1).upper().replace("邮箱", "EMAIL")
-            if "认证失败" in _build_text(request.context):
-                slots["errorMessage"] = "认证失败"
-            if "账号已锁定" in _build_text(request.context):
-                slots["errorMessage"] = "账号已锁定"
-            if "invalid credentials" in text:
-                slots["errorMessage"] = "invalid credentials"
-            if "登录失败" in _build_text(request.context):
-                slots["errorMessage"] = "登录失败"
-            if "sign in failed" in text:
-                slots["errorMessage"] = "sign in failed"
-            if "未开通" in _build_text(request.context):
-                slots["errorMessage"] = "VPN 未开通"
-            if "access denied" in text:
-                slots["errorMessage"] = "access denied"
-            if "无权限" in _build_text(request.context):
-                slots["errorMessage"] = "无权限访问"
-            if "windows" in text or "电脑" in text:
-                slots["deviceType"] = "WINDOWS"
-            if "mac" in text:
-                slots["deviceType"] = "MAC"
-            if "iphone" in text or "ios" in text:
-                slots["deviceType"] = "IOS"
-            if "android" in text or "安卓" in text:
-                slots["deviceType"] = "ANDROID"
-            if "只读" in text:
-                slots["permissionLevel"] = "READ_ONLY"
-            if "写入" in text:
-                slots["permissionLevel"] = "READ_WRITE"
-            if "管理员" in text or "admin" in text:
-                slots["permissionLevel"] = "ADMIN"
-            if "用于" in _build_text(request.context):
-                slots["reason"] = _build_text(request.context).split("用于", 1)[1].split("。", 1)[0].strip()
-            if "因为" in _build_text(request.context):
-                slots["reason"] = _build_text(request.context).split("因为", 1)[1].split("。", 1)[0].strip()
-            duration = re.search(r"([0-9一二两三四五六七八九十]+\s*(天|周|个月|月|小时))", _build_text(request.context))
-            if duration:
-                slots["duration"] = duration.group(1)
+            slots = _extract_slots(text, lower)
             missing = _resolve_missing(intent, slots)
             return {"slots": slots, "missingSlots": missing, "reasoning": "根据规则抽取槽位"}
 
@@ -81,7 +83,7 @@ class MockLLMClient:
                 }
             if not missing_slots:
                 return {"shouldAskUser": False, "question": "", "nextStep": "UNDERSTANDING_READY"}
-            labels = "、".join(missing_slots)
+            labels = "、".join(_CHINESE_SLOT_LABELS.get(slot, slot) for slot in missing_slots)
             return {
                 "shouldAskUser": True,
                 "question": f"为了继续处理，请补充：{labels}。",
@@ -89,6 +91,89 @@ class MockLLMClient:
             }
 
         raise ValueError(f"Unsupported node: {request.node_name}")
+
+
+def _extract_slots(text: str, lower: str) -> dict:
+    slots: dict[str, object] = {}
+
+    employee = re.search(r"\b([A-Z]\d{4,})\b", text, re.IGNORECASE)
+    if employee:
+        slots["employeeId"] = employee.group(1).upper()
+
+    if any(token in lower for token in ("production database", "prod database", "生产数据库", "生产库")):
+        slots["targetSystem"] = "production database"
+    else:
+        system = re.search(r"(OA|ERP|CRM|SAP|JIRA|GITLAB|EMAIL|BI|HR系统|数据库|邮箱)", text, re.IGNORECASE)
+        if system:
+            raw = system.group(1)
+            normalized = raw.upper()
+            if raw in {"邮箱"}:
+                slots["targetSystem"] = "EMAIL"
+            elif raw in {"数据库"}:
+                slots["targetSystem"] = "database"
+            elif raw == "HR系统":
+                slots["targetSystem"] = "HR系统"
+            else:
+                slots["targetSystem"] = normalized
+
+    if any(token in lower for token in ("账号被锁定", "账号已锁定", "账户被锁定", "账户已锁定", "locked")):
+        slots["errorMessage"] = "账号已锁定"
+    elif any(token in lower for token in ("认证失败", "authentication failed")):
+        slots["errorMessage"] = "认证失败"
+    elif any(token in lower for token in ("登录失败", "login failed", "sign in failed")):
+        slots["errorMessage"] = "登录失败"
+    elif "invalid credentials" in lower:
+        slots["errorMessage"] = "invalid credentials"
+    elif any(token in lower for token in ("未开通", "无权限", "access denied")):
+        slots["errorMessage"] = "access denied"
+
+    if any(token in lower for token in ("iphone", "ios")):
+        slots["deviceType"] = "IOS"
+    elif any(token in lower for token in ("android", "安卓")):
+        slots["deviceType"] = "ANDROID"
+    elif "手机" in lower:
+        slots["deviceType"] = "MOBILE"
+    elif any(token in lower for token in ("windows", "电脑", "pc")):
+        slots["deviceType"] = "WINDOWS"
+    elif "mac" in lower:
+        slots["deviceType"] = "MAC"
+
+    if any(token in lower for token in ("管理员", "admin", "administrator")):
+        slots["permissionLevel"] = "ADMIN"
+    elif any(token in lower for token in ("写入", "read write", "read-write")):
+        slots["permissionLevel"] = "READ_WRITE"
+    elif any(token in lower for token in ("只读", "read only", "read-only")):
+        slots["permissionLevel"] = "READ_ONLY"
+
+    if "用于" in text:
+        slots["reason"] = _extract_segment(text, "用于")
+    elif "因为" in text:
+        slots["reason"] = _extract_segment(text, "因为")
+    elif "原因是" in text:
+        slots["reason"] = _extract_segment(text, "原因是")
+    elif "由于" in text:
+        slots["reason"] = _extract_segment(text, "由于")
+
+    duration = re.search(r"([0-9一二两三四五六七八九十半]+\s*(天|周|个月|月|小时))", text)
+    if duration:
+        slots["duration"] = duration.group(1)
+
+    if any(
+        token in lower
+        for token in ("换过手机", "换手机", "昨天换过手机", "刚换手机", "更换手机", "换绑", "重新绑定", "重置mfa", "重置 mfa")
+    ):
+        slots["mfaRecentlyChanged"] = True
+
+    return slots
+
+
+def _extract_segment(text: str, marker: str) -> str:
+    fragment = text.split(marker, 1)[1]
+    for delimiter in ("。", "，", ",", ";", "；"):
+        if delimiter in fragment:
+            fragment = fragment.split(delimiter, 1)[0]
+            break
+    return fragment.strip(" ：:。；，,")
 
 
 def _build_text(context: dict) -> str:

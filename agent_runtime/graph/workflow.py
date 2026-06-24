@@ -18,12 +18,15 @@ def run_workflow(client, context: dict) -> dict:
         "slots": slot_result,
         "question": question_result,
     }
-    if not slot_result["missingSlots"]:
-        retrieval_result = retrieve_sop.run(state)
-        state["selectedSopId"] = retrieval_result["selectedSopId"]
-        state["matched_sops"] = [match["sop_id"] for match in retrieval_result["matchedSops"]]
-        result["retrieval"] = retrieval_result
-        result["plan"] = generate_plan.run(state)
+    # UNKNOWN 或仍需追问时，不应继续生成 SOP / Plan，避免越界推进自动处理链路。
+    if slot_result["missingSlots"] or question_result["shouldAskUser"] or intent_result["intent"] == "UNKNOWN":
+        return result
+
+    retrieval_result = retrieve_sop.run(state)
+    state["selectedSopId"] = retrieval_result["selectedSopId"]
+    state["matched_sops"] = [match["sop_id"] for match in retrieval_result["matchedSops"]]
+    result["retrieval"] = retrieval_result
+    result["plan"] = generate_plan.run(state)
     return result
 
 

@@ -24,8 +24,8 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             ],
             auto_executable_steps=[
                 SopStepBlueprint(tool="AccountTool", action="queryAccountStatus", reason="先确认账号确实处于锁定状态，避免误操作。"),
-                SopStepBlueprint(tool="AccountTool", action="unlockAccount", reason="锁定场景可以直接生成解锁候选动作，不等待额外审批。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要把候选处理结果同步给报障员工，减少重复追问。"),
+                SopStepBlueprint(tool="AccountTool", action="unlockAccount", reason="锁定场景允许生成自动解锁候选动作，便于 Harness 继续裁决。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要把处理结果同步给报障员工，减少重复追问。"),
             ],
             approval_required_steps=[],
             escalation_rules=["如果账号并未锁定而是目录异常，需要转人工排查认证链路。"],
@@ -42,8 +42,8 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
                 "NotificationTool.sendNotification",
             ],
             auto_executable_steps=[
-                SopStepBlueprint(tool="AccountTool", action="queryAccountStatus", reason="先核实账号是否正常，区分密码错误和锁定场景。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="当前没有密码重置工具，候选计划要明确告知下一步人工处置建议。"),
+                SopStepBlueprint(tool="AccountTool", action="queryAccountStatus", reason="先核实账号状态是否正常，区分密码错误和锁定场景。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="当前没有密码重置工具，需要明确告知用户后续人工处理建议。"),
             ],
             approval_required_steps=[],
             escalation_rules=["若账号状态正常但仍无法登录，需要转人工排查密码、SSO 或目录同步问题。"],
@@ -62,11 +62,11 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             ],
             auto_executable_steps=[
                 SopStepBlueprint(tool="VpnTool", action="queryVpnLoginFailure", reason="先确认失败原因来自账号、网络还是设备端。"),
-                SopStepBlueprint(tool="MfaTool", action="queryMfaStatus", reason="VPN 认证失败常与 MFA 状态耦合，需要同时检查。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="候选计划需要把排查路径同步给用户和后续处理人。"),
+                SopStepBlueprint(tool="MfaTool", action="queryMfaStatus", reason="VPN 认证失败常与 MFA 状态耦合，需要一起检查。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要把排查路径同步给用户和后续处理人。"),
             ],
             approval_required_steps=[],
-            escalation_rules=["若连续失败且工具查询无异常，升级到网络或终端团队继续排查。"],
+            escalation_rules=["若连续失败且工具查询无异常，则升级到网络或终端团队继续排查。"],
         ),
         SopMetadata(
             sop_id="SOP-VPN-PERM-MISSING-001",
@@ -81,7 +81,7 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             ],
             auto_executable_steps=[
                 SopStepBlueprint(tool="VpnTool", action="queryVpnPermission", reason="先核实 VPN 权限现状，避免把认证问题误当成授权问题。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="当前注册工具里没有 VPN 授权写操作，需明确转人工或线下审批。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="当前注册工具里没有 VPN 授权写操作，需要明确转人工或线下审批。"),
             ],
             approval_required_steps=[],
             escalation_rules=["若确认缺少 VPN 权限，则转给对应权限管理员处理。"],
@@ -100,7 +100,7 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             ],
             auto_executable_steps=[
                 SopStepBlueprint(tool="MfaTool", action="queryMfaStatus", reason="先确认当前 MFA 绑定状态，避免重复发起重置申请。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="高风险动作前要先通知申请人和审批链路。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="高风险身份动作前要先通知申请人和审批链路。"),
             ],
             approval_required_steps=[
                 SopStepBlueprint(tool="MfaTool", action="resetMfaBindingRequest", reason="MFA 换绑属于高风险身份动作，必须进入审批而不是直接执行。", requiredApproval=True),
@@ -121,8 +121,8 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             ],
             auto_executable_steps=[
                 SopStepBlueprint(tool="PermissionTool", action="queryPermission", reason="授予前先查当前权限，避免重复开通。"),
-                SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="普通 Jira 权限可生成可执行候选动作，供 Harness 继续校验。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要把申请结果和时限同步给申请人。"),
+                SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="普通 Jira 权限可以生成可执行候选动作，交由 Harness 校验。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要把申请结果和有效时长同步给用户。"),
             ],
             approval_required_steps=[],
             escalation_rules=["若申请的是 Jira 管理员权限，则切换到高风险审批 SOP。"],
@@ -140,9 +140,9 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
                 "NotificationTool.sendNotification",
             ],
             auto_executable_steps=[
-                SopStepBlueprint(tool="PermissionTool", action="queryPermission", reason="先查现有仓库权限，避免多次授予同级权限。"),
-                SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="普通 GitLab 权限可以形成标准候选动作，等待 Harness 判断是否放行。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="申请人需要明确获知权限级别和有效时长。"),
+                SopStepBlueprint(tool="PermissionTool", action="queryPermission", reason="先查现有仓库权限，避免重复授予。"),
+                SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="普通 GitLab 权限可形成标准候选动作，等待 Harness 决策。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要向申请人同步权限级别和有效时长。"),
             ],
             approval_required_steps=[],
             escalation_rules=["若涉及受保护仓库或管理员角色，则升级到高风险审批 SOP。"],
@@ -161,12 +161,12 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             ],
             auto_executable_steps=[
                 SopStepBlueprint(tool="PermissionTool", action="queryPermission", reason="高风险授权前必须先确认当前权限基线。"),
-                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要先通知审批人与申请人，避免绕过高风险控制。"),
+                SopStepBlueprint(tool="NotificationTool", action="sendNotification", reason="需要先通知审批人和申请人，避免绕过高风险控制。"),
             ],
             approval_required_steps=[
-                SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="生产系统管理员权限必须带审批标记，绝不能直接放行。", requiredApproval=True),
+                SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="生产系统管理员权限必须带审批标记，不能直接放行。", requiredApproval=True),
             ],
-            escalation_rules=["如果申请理由无法证明生产变更需要，必须拒绝并转人工复核。"],
+            escalation_rules=["若申请理由无法证明生产变更必要性，必须拒绝并转人工复核。"],
         ),
         SopMetadata(
             sop_id="SOP-EMAIL-LOGIN-MANUAL-001",
@@ -205,7 +205,7 @@ def get_seed_sops() -> tuple[SopMetadata, ...]:
             approval_required_steps=[
                 SopStepBlueprint(tool="PermissionTool", action="grantPermission", reason="任何高风险授权动作都必须保留审批门禁。", requiredApproval=True),
             ],
-            escalation_rules=["如果缺少审批依据或申请时长异常，直接转人工审查。"],
+            escalation_rules=["若缺少审批依据或申请时长异常，则直接转人工复核。"],
         ),
     )
 
