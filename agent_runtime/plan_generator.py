@@ -1,4 +1,4 @@
-"""根据命中的 SOP 生成候选 Plan，并做 Schema 级基础校验。"""
+"""根据命中的 SOP 生成 Candidate Plan，并做 Schema 级基础校验。"""
 
 from __future__ import annotations
 
@@ -44,7 +44,18 @@ class CandidatePlanGenerator:
         steps: list[PlanStep] = []
 
         for blueprint in [*sop.auto_executable_steps, *sop.approval_required_steps]:
-            steps.append(self._build_step(len(steps) + 1, blueprint.tool, blueprint.action, blueprint.reason, blueprint.requiredApproval, known_slots, ticket_facts, sop))
+            steps.append(
+                self._build_step(
+                    len(steps) + 1,
+                    blueprint.tool,
+                    blueprint.action,
+                    blueprint.reason,
+                    blueprint.requiredApproval,
+                    known_slots,
+                    ticket_facts,
+                    sop,
+                )
+            )
 
         plan_payload = {
             "planId": self._build_plan_id(ticket_facts.get("ticketId", ""), selected_sop_id),
@@ -116,7 +127,7 @@ class CandidatePlanGenerator:
     def _build_notification_message(self, sop: SopMetadata, known_slots: dict[str, Any], ticket_facts: dict[str, Any]) -> str:
         employee_id = known_slots.get("employeeId") or ticket_facts.get("creatorId") or "未知员工"
         system = known_slots.get("targetSystem") or known_slots.get("deviceType") or "当前场景"
-        return f"工单 {ticket_facts.get('ticketId', '')} 已生成 {sop.name} 候选计划，请关注 {system} 相关处理结果。"
+        return f"工单 {ticket_facts.get('ticketId', '')} 已生成 {sop.name} 候选计划，请关注 {system} 的处理结果并同步给 {employee_id}。"
 
     def _registry_requires_approval(self, registry_value: bool | str, known_slots: dict[str, Any]) -> bool:
         if isinstance(registry_value, bool):
