@@ -77,16 +77,13 @@ class TicketServiceConcurrencyTest {
                 "U1001",
                 UserRole.EMPLOYEE,
                 TicketPriority.MEDIUM));
-
-        TicketResponse triaged = ticketService.transitionStatus(
-                created.ticketId(),
-                new TransitionTicketStatusRequest(TicketStatus.TRIAGING, "E2001", UserRole.IT_ENGINEER, created.version(), "triage"));
+        TicketResponse latest = ticketService.getTicket(created.ticketId());
 
         Callable<String> moveToPlanning = () -> {
             try {
                 ticketService.transitionStatus(
                         created.ticketId(),
-                        new TransitionTicketStatusRequest(TicketStatus.PLANNING, "E2001", UserRole.IT_ENGINEER, triaged.version(), "plan"));
+                        new TransitionTicketStatusRequest(TicketStatus.TRIAGING, "E2001", UserRole.IT_ENGINEER, latest.version(), "triage"));
                 return "SUCCESS";
             } catch (TicketConflictException exception) {
                 return "CONFLICT";
@@ -97,6 +94,6 @@ class TicketServiceConcurrencyTest {
         List<String> results = List.of(futures.get(0).get(), futures.get(1).get());
 
         assertThat(results).containsExactlyInAnyOrder("SUCCESS", "CONFLICT");
-        assertThat(ticketService.getTicket(created.ticketId()).status()).isEqualTo(TicketStatus.PLANNING);
+        assertThat(ticketService.getTicket(created.ticketId()).status()).isEqualTo(TicketStatus.TRIAGING);
     }
 }

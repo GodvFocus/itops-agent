@@ -4,6 +4,7 @@ import com.itops.itopsagent.dto.AddConversationMessageRequest;
 import com.itops.itopsagent.dto.AgentStepLogResponse;
 import com.itops.itopsagent.dto.ConversationMessageResponse;
 import com.itops.itopsagent.dto.CreateTicketRequest;
+import com.itops.itopsagent.dto.TicketConfirmRequest;
 import com.itops.itopsagent.dto.TicketResponse;
 import com.itops.itopsagent.dto.TicketContextResponse;
 import com.itops.itopsagent.dto.TicketStatusHistoryResponse;
@@ -25,6 +26,7 @@ import com.itops.itopsagent.service.AgentUnderstandingService;
 import com.itops.itopsagent.service.AuditLogService;
 import com.itops.itopsagent.service.ConversationMessageService;
 import com.itops.itopsagent.service.TicketService;
+import com.itops.itopsagent.service.TicketAutomationService;
 import com.itops.itopsagent.service.TicketContextService;
 import com.itops.itopsagent.service.TicketStateMachineService;
 import com.itops.itopsagent.utils.TicketIdGenerator;
@@ -59,6 +61,8 @@ public class TicketServiceImpl implements TicketService {
     private final AgentStepLogService agentStepLogService;
     /** 工单理解编排服务。 */
     private final AgentUnderstandingService agentUnderstandingService;
+    /** 工单自动推进服务。 */
+    private final TicketAutomationService ticketAutomationService;
     /** 统一时钟，便于测试和时间控制。 */
     private final Clock clock;
 
@@ -72,6 +76,7 @@ public class TicketServiceImpl implements TicketService {
             TicketContextService ticketContextService,
             AgentStepLogService agentStepLogService,
             AgentUnderstandingService agentUnderstandingService,
+            TicketAutomationService ticketAutomationService,
             Clock clock) {
         this.ticketMapper = ticketMapper;
         this.ticketStatusHistoryMapper = ticketStatusHistoryMapper;
@@ -82,6 +87,7 @@ public class TicketServiceImpl implements TicketService {
         this.ticketContextService = ticketContextService;
         this.agentStepLogService = agentStepLogService;
         this.agentUnderstandingService = agentUnderstandingService;
+        this.ticketAutomationService = ticketAutomationService;
         this.clock = clock;
     }
 
@@ -133,6 +139,7 @@ public class TicketServiceImpl implements TicketService {
                 ConversationMessageType.TICKET_DESCRIPTION,
                 request.description().trim());
         agentUnderstandingService.analyzeTicket(saved.getTicketId());
+        ticketAutomationService.progressAfterUnderstanding(saved.getTicketId());
         return toTicketResponse(saved);
     }
 
@@ -228,6 +235,56 @@ public class TicketServiceImpl implements TicketService {
                 ticketId,
                 Map.of("messageLength", request.content().trim().length()));
         agentUnderstandingService.analyzeTicket(ticketId);
+        ticketAutomationService.progressAfterUnderstanding(ticketId);
+        return getTicket(ticketId);
+    }
+
+    @Override
+    @Transactional
+    public TicketResponse confirmTicket(String ticketId, TicketConfirmRequest request) {
+        if (request == null || request.resolved() == null) {
+            throw new TicketValidationException("resolved is required");
+        }
+        Ticket ticket = ticketMapper.selectById(ticketId);
+        if (ticket == null) {
+            throw new TicketNotFoundException(ticketId);
+        }
+        String comment = request.comment() == null ? "" : request.comment().trim();
+        if (!comment.isEmpty()) {
+            conversationMessageService.appendMessage(ticketId, ConversationRole.USER, ConversationMessageType.USER_REPLY, comment);
+        }
+        if (Boolean.TRUE.equals(request.resolved())) {
+            transitionStatus(ticketId, new TransitionTicketStatusRequest(
+                    TicketStatus.RESOLVED,
+                    ticket.getCreatorId(),
+                    UserRole.EMPLOYEE,
+                    null,
+                    comment.isEmpty() ? "用户确认问题已解决" : comment));
+            transitionStatus(ticketId, new TransitionTicketStatusRequest(
+                    TicketStatus.CLOSED,
+                    "AUTO_CLOSE",
+                    UserRole.IT_ENGINEER,
+                    null,
+                    "用户确认通过，系统自动关闭工单"));
+        } else {
+            transitionStatus(ticketId, new TransitionTicketStatusRequest(
+                    TicketStatus.TRIAGING,
+                    ticket.getCreatorId(),
+                    UserRole.EMPLOYEE,
+                    null,
+                    comment.isEmpty() ? "用户反馈问题未解决" : comment));
+            transitionStatus(ticketId, new TransitionTicketStatusRequest(
+                    TicketStatus.MANUAL_TAKEOVER,
+                    "AUTO_ESCALATE",
+                    UserRole.IT_ENGINEER,
+                    null,
+                    "用户确认未解决，转人工继续跟进"));
+            conversationMessageService.appendMessageIfChanged(
+                    ticketId,
+                    ConversationRole.AGENT,
+                    ConversationMessageType.AGENT_ESCALATION,
+                    "用户反馈问题仍未解决，工单已转人工接管。");
+        }
         return getTicket(ticketId);
     }
 

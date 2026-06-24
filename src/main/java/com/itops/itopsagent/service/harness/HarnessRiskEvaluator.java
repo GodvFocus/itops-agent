@@ -14,7 +14,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class HarnessRiskEvaluator {
 
-    private static final List<TicketStatus> ALLOWED_STATUSES = List.of(TicketStatus.PLANNING, TicketStatus.PLAN_VALIDATING);
+    private static final List<TicketStatus> ALLOWED_STATUSES = List.of(
+            TicketStatus.PLANNING,
+            TicketStatus.PLAN_VALIDATING,
+            TicketStatus.WAITING_APPROVAL,
+            TicketStatus.EXECUTING);
     private final ToolRegistryService toolRegistryService;
 
     public HarnessRiskEvaluator(ToolRegistryService toolRegistryService) {

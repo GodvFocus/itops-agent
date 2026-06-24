@@ -59,38 +59,21 @@ public class HarnessPlanValidationService {
         }
 
         ensurePlanValidating(request.ticketId());
-        planExecutionTracker.register(
-                request.planId(),
-                evaluation.executableSteps().stream().map(PlanStepAssessment::stepNo).collect(java.util.stream.Collectors.toSet()));
-        harnessTicketStatePort.transition(request.ticketId(), TicketStatus.EXECUTING, "Harness 已接管并开始异步执行工具");
-        for (PlanStepAssessment step : evaluation.executableSteps()) {
-            harnessToolCallLogService.record(
-                    request.ticketId(),
-                    request.planId(),
-                    step.stepNo(),
-                    step.tool(),
-                    step.action(),
-                    step.actionType(),
-                    step.idemKey(),
-                    ToolCallStatus.QUEUED,
-                    "APPROVED",
-                    step.params(),
-                    null,
-                    null,
-                    1);
-            toolTaskQueue.publish(new ToolExecutionTask(
-                    request.ticketId(),
-                    request.planId(),
-                    step.stepNo(),
-                    step.tool(),
-                    step.action(),
-                    step.actionType(),
-                    step.params(),
-                    step.idemKey(),
-                    1));
-        }
-        toolTaskProcessor.processPendingAsync();
+        queueApprovedSteps(request, evaluation.executableSteps(), true);
         return response;
+    }
+
+    public void resumeApprovedPlan(CandidatePlanRequest request) {
+        HarnessPlanEvaluation evaluation = evaluatePlan(request);
+        if ("REJECTED".equals(evaluation.response().decision())) {
+            throw new IllegalStateException("Approved plan became invalid during resume");
+        }
+        List<PlanStepAssessment> approvedSteps = java.util.stream.Stream.concat(
+                        evaluation.executableSteps().stream(),
+                        evaluation.approvalSteps().stream())
+                .sorted(java.util.Comparator.comparing(PlanStepAssessment::stepNo))
+                .toList();
+        queueApprovedSteps(request, approvedSteps, false);
     }
 
     private HarnessPlanEvaluation evaluatePlan(CandidatePlanRequest request) {
@@ -142,5 +125,41 @@ public class HarnessPlanValidationService {
                     step.reason(),
                     1);
         }
+    }
+
+    private void queueApprovedSteps(CandidatePlanRequest request, List<PlanStepAssessment> steps, boolean transitionToExecuting) {
+        planExecutionTracker.register(
+                request.planId(),
+                steps.stream().map(PlanStepAssessment::stepNo).collect(java.util.stream.Collectors.toSet()));
+        if (transitionToExecuting) {
+            harnessTicketStatePort.transition(request.ticketId(), TicketStatus.EXECUTING, "Harness 已接管并开始异步执行工具");
+        }
+        for (PlanStepAssessment step : steps) {
+            harnessToolCallLogService.record(
+                    request.ticketId(),
+                    request.planId(),
+                    step.stepNo(),
+                    step.tool(),
+                    step.action(),
+                    step.actionType(),
+                    step.idemKey(),
+                    ToolCallStatus.QUEUED,
+                    "APPROVED",
+                    step.params(),
+                    null,
+                    null,
+                    1);
+            toolTaskQueue.publish(new ToolExecutionTask(
+                    request.ticketId(),
+                    request.planId(),
+                    step.stepNo(),
+                    step.tool(),
+                    step.action(),
+                    step.actionType(),
+                    step.params(),
+                    step.idemKey(),
+                    1));
+        }
+        toolTaskProcessor.processPendingAsync();
     }
 }

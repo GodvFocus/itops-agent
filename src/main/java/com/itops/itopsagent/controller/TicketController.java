@@ -3,10 +3,13 @@ package com.itops.itopsagent.controller;
 import com.itops.itopsagent.dto.AddConversationMessageRequest;
 import com.itops.itopsagent.dto.CreateTicketRequest;
 import com.itops.itopsagent.dto.CreateTicketResponse;
+import com.itops.itopsagent.dto.TicketConfirmRequest;
 import com.itops.itopsagent.dto.TicketResponse;
 import com.itops.itopsagent.dto.TicketSummaryResponse;
+import com.itops.itopsagent.dto.TicketTimelineResponse;
 import com.itops.itopsagent.dto.TransitionTicketStatusRequest;
 import com.itops.itopsagent.service.TicketService;
+import com.itops.itopsagent.service.TicketTimelineService;
 import java.net.URI;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class TicketController {
 
     private final TicketService ticketService;
+    private final TicketTimelineService ticketTimelineService;
 
     @PostMapping
     public ResponseEntity<CreateTicketResponse> createTicket(@RequestBody CreateTicketRequest request) {
@@ -50,5 +54,15 @@ public class TicketController {
     @PostMapping("/{ticketId}/messages")
     public TicketResponse appendMessage(@PathVariable String ticketId, @RequestBody AddConversationMessageRequest request) {
         return ticketService.appendMessage(ticketId, request);
+    }
+
+    @PostMapping("/{ticketId}/confirm")
+    public TicketResponse confirmTicket(@PathVariable String ticketId, @RequestBody TicketConfirmRequest request) {
+        return ticketService.confirmTicket(ticketId, request);
+    }
+
+    @GetMapping("/{ticketId}/timeline")
+    public TicketTimelineResponse getTimeline(@PathVariable String ticketId) {
+        return ticketTimelineService.getTimeline(ticketId);
     }
 }

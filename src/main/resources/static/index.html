@@ -3,116 +3,189 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ITOps Ticket Console</title>
+    <title>ITOps Agent Phase 5 Console</title>
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-<main class="shell">
-    <section class="hero">
-        <p class="eyebrow">Phase 2 AI Understanding</p>
-        <h1>ITOps Ticket Console</h1>
-        <p class="subtitle">创建工单后，Agent 会自动识别意图、抽取关键槽位、在缺信息时追问，并把结构化上下文写回工单。</p>
-    </section>
-
-    <section class="panel">
-        <h2>创建工单</h2>
-        <form id="create-form" class="grid">
-            <label>
-                标题
-                <input name="title" placeholder="例如：VPN 无法连接" required>
-            </label>
-            <label>
-                创建人 ID
-                <input name="creatorId" placeholder="U1001" required>
-            </label>
-            <label>
-                创建人角色
-                <select name="creatorRole">
-                    <option>EMPLOYEE</option>
-                    <option>IT_ENGINEER</option>
-                    <option>APPROVER</option>
-                    <option>ADMIN</option>
-                </select>
-            </label>
-            <label>
-                优先级
-                <select name="priority">
-                    <option>LOW</option>
-                    <option selected>MEDIUM</option>
-                    <option>HIGH</option>
-                </select>
-            </label>
-            <label class="full">
-                描述
-                <textarea name="description" rows="4" placeholder="请描述问题现象、影响范围和错误提示" required></textarea>
-            </label>
-            <button type="submit">提交工单</button>
-        </form>
-        <p id="create-result" class="muted"></p>
-    </section>
-
-    <section class="columns">
-        <article class="panel">
-            <div class="panel-head">
-                <h2>工单列表</h2>
-                <button id="refresh-list" type="button">刷新</button>
+<main class="app-shell">
+    <section class="hero panel">
+        <div>
+            <p class="eyebrow">Phase 5 Approval Loop + Frontend Timeline</p>
+            <h1>ITOps Agent 演示控制台</h1>
+            <p class="subtitle">
+                这一页直接串起工单创建、Agent 理解、SOP/Plan、Harness 裁决、审批恢复执行、用户确认关闭与人工升级。
+            </p>
+        </div>
+        <div class="hero-side">
+            <div class="hero-kpi">
+                <span>支持 Case</span>
+                <strong>3 条核心 E2E</strong>
             </div>
-            <div id="ticket-list" class="list"></div>
-        </article>
+            <div class="hero-kpi">
+                <span>高风险控制</span>
+                <strong>100% 审批拦截</strong>
+            </div>
+            <div class="hero-kpi">
+                <span>刷新方式</span>
+                <strong>轮询展示时间线</strong>
+            </div>
+        </div>
+    </section>
 
-        <article class="panel">
-            <h2>工单详情</h2>
-            <div id="ticket-detail" class="detail empty">选择左侧工单查看详情。</div>
-            <form id="message-form" class="grid hidden">
-                <input type="hidden" name="ticketId">
-                <label class="full">
-                    补充信息
-                    <textarea name="content" rows="3" placeholder="例如：我的员工编号是 U1001，设备是 Windows，错误提示是认证失败"></textarea>
-                </label>
-                <button type="submit">提交补充信息</button>
-            </form>
-            <p id="message-result" class="muted"></p>
-            <form id="transition-form" class="grid hidden">
-                <input type="hidden" name="ticketId">
-                <input type="hidden" name="expectedVersion">
-                <label>
-                    目标状态
-                    <select name="targetStatus">
-                        <option>TRIAGING</option>
-                        <option>NEED_MORE_INFO</option>
-                        <option>PLANNING</option>
-                        <option>PLAN_VALIDATING</option>
-                        <option>WAITING_APPROVAL</option>
-                        <option>EXECUTING</option>
-                        <option>WAITING_USER_CONFIRM</option>
-                        <option>RESOLVED</option>
-                        <option>FAILED</option>
-                        <option>ESCALATED</option>
-                        <option>MANUAL_TAKEOVER</option>
-                        <option>CLOSED</option>
-                    </select>
-                </label>
-                <label>
-                    操作者 ID
-                    <input name="actorId" placeholder="U2001" required>
-                </label>
-                <label>
-                    操作者角色
-                    <select name="actorRole">
-                        <option>EMPLOYEE</option>
-                        <option selected>IT_ENGINEER</option>
-                        <option>APPROVER</option>
-                        <option>ADMIN</option>
-                    </select>
-                </label>
-                <label class="full">
-                    备注
-                    <textarea name="comment" rows="3" placeholder="可选：记录本次状态变化原因"></textarea>
-                </label>
-                <button type="submit">提交状态变更</button>
-            </form>
-            <p id="transition-result" class="muted"></p>
-        </article>
+    <section class="demo-strip panel">
+        <div class="section-head">
+            <h2>一键 Demo</h2>
+            <p>直接生成任务文档要求的三条演示工单。</p>
+        </div>
+        <div class="demo-actions">
+            <button class="demo-btn" data-demo="account">Case 1 账号锁定</button>
+            <button class="demo-btn" data-demo="vpn">Case 2 VPN MFA</button>
+            <button class="demo-btn" data-demo="permission">Case 3 高风险权限</button>
+            <button id="refresh-list" type="button" class="ghost-btn">刷新列表</button>
+        </div>
+    </section>
+
+    <section class="workspace">
+        <aside class="sidebar">
+            <article class="panel">
+                <div class="section-head">
+                    <h2>创建工单</h2>
+                    <p>也可以手工输入自定义工单。</p>
+                </div>
+                <form id="create-form" class="form-grid">
+                    <label>
+                        标题
+                        <input name="title" placeholder="例如：VPN 无法连接" required>
+                    </label>
+                    <label>
+                        创建人 ID
+                        <input name="creatorId" placeholder="U1001" value="U1001" required>
+                    </label>
+                    <label>
+                        创建人角色
+                        <select name="creatorRole">
+                            <option selected>EMPLOYEE</option>
+                            <option>IT_ENGINEER</option>
+                            <option>APPROVER</option>
+                            <option>ADMIN</option>
+                        </select>
+                    </label>
+                    <label>
+                        优先级
+                        <select name="priority">
+                            <option>LOW</option>
+                            <option selected>MEDIUM</option>
+                            <option>HIGH</option>
+                        </select>
+                    </label>
+                    <label class="full">
+                        描述
+                        <textarea name="description" rows="5" placeholder="请描述问题现象、影响范围和错误提示" required></textarea>
+                    </label>
+                    <button type="submit">提交工单</button>
+                </form>
+                <p id="create-result" class="feedback muted"></p>
+            </article>
+
+            <article class="panel ticket-list-panel">
+                <div class="section-head">
+                    <h2>工单列表</h2>
+                    <p>点击左侧工单加载完整执行视图。</p>
+                </div>
+                <div id="ticket-list" class="ticket-list"></div>
+            </article>
+        </aside>
+
+        <section class="board">
+            <article id="ticket-empty" class="panel empty-state">
+                <h2>等待选择工单</h2>
+                <p>创建一条工单，或者从左侧选择现有工单，我们会把 Agent、Harness、审批和工具执行全部展开给你。</p>
+            </article>
+
+            <div id="ticket-view" class="board-stack hidden">
+                <article class="panel">
+                    <div class="section-head">
+                        <div>
+                            <p class="eyebrow small">Ticket Overview</p>
+                            <h2 id="ticket-title">工单标题</h2>
+                        </div>
+                        <div id="ticket-status-badge" class="status-pill">NEW</div>
+                    </div>
+                    <div id="ticket-summary" class="summary-grid"></div>
+                    <div class="resolution-box">
+                        <span>Agent 处理摘要</span>
+                        <strong id="resolution-summary">-</strong>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="section-head">
+                        <h2>计划与审批</h2>
+                        <p>当前命中 SOP、结构化计划和审批状态。</p>
+                    </div>
+                    <div class="split-grid">
+                        <div>
+                            <h3>Candidate Plan</h3>
+                            <div id="plan-panel" class="stack-list"></div>
+                        </div>
+                        <div>
+                            <h3>Approval Task</h3>
+                            <div id="approval-panel" class="stack-list"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="section-head">
+                        <h2>Agent 与用户对话</h2>
+                        <p>补充信息、摘要和升级结论都落在同一条会话事实里。</p>
+                    </div>
+                    <div id="conversation-panel" class="message-stream"></div>
+                    <form id="message-form" class="action-form hidden">
+                        <label class="full">
+                            补充信息
+                            <textarea name="content" rows="3" placeholder="例如：我的员工编号是 E10086，设备是手机"></textarea>
+                        </label>
+                        <button type="submit">提交补充信息</button>
+                    </form>
+                    <p id="message-result" class="feedback muted"></p>
+                </article>
+
+                <article class="panel">
+                    <div class="section-head">
+                        <h2>执行时间线</h2>
+                        <p>按时间顺序展示 Agent、Approval、Tool 的每一步。</p>
+                    </div>
+                    <div id="timeline-panel" class="timeline"></div>
+                </article>
+
+                <article class="panel">
+                    <div class="section-head">
+                        <h2>工具调用与状态历史</h2>
+                        <p>所有工具执行、Harness 决策和工单状态变更都可回放。</p>
+                    </div>
+                    <div class="split-grid">
+                        <div>
+                            <h3>Tool Call Log</h3>
+                            <div id="tools-panel" class="stack-list"></div>
+                        </div>
+                        <div>
+                            <h3>Status History</h3>
+                            <div id="history-panel" class="stack-list"></div>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="section-head">
+                        <h2>操作区</h2>
+                        <p>审批、用户确认和失败升级都在这里操作。</p>
+                    </div>
+                    <div id="actions-panel" class="action-zone"></div>
+                    <p id="action-result" class="feedback muted"></p>
+                </article>
+            </div>
+        </section>
     </section>
 </main>
 <script src="/app.js"></script>

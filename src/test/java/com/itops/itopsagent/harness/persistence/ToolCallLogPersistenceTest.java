@@ -88,9 +88,11 @@ class ToolCallLogPersistenceTest {
                 "U5001",
                 UserRole.EMPLOYEE,
                 TicketPriority.MEDIUM));
+
+        TicketResponse latest = ticketService.getTicket(created.ticketId());
         TicketResponse triaged = ticketService.transitionStatus(
                 created.ticketId(),
-                new TransitionTicketStatusRequest(TicketStatus.TRIAGING, "E5001", UserRole.IT_ENGINEER, created.version(), "开始分诊"));
+                new TransitionTicketStatusRequest(TicketStatus.TRIAGING, "E5001", UserRole.IT_ENGINEER, latest.version(), "开始分诊"));
         ticketService.transitionStatus(
                 created.ticketId(),
                 new TransitionTicketStatusRequest(TicketStatus.PLANNING, "E5001", UserRole.IT_ENGINEER, triaged.version(), "进入计划阶段"));

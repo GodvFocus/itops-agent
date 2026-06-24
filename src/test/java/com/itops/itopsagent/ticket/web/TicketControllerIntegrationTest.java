@@ -87,7 +87,7 @@ class TicketControllerIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
                 .andExpect(jsonPath("$[0].ticketId", is(ticketId)))
-                .andExpect(jsonPath("$[0].status", is("NEW")));
+                .andExpect(jsonPath("$[0].status", is("NEED_MORE_INFO")));
 
         mockMvc.perform(get("/api/tickets/{ticketId}", ticketId))
                 .andExpect(status().isOk())
@@ -95,7 +95,7 @@ class TicketControllerIntegrationTest {
                 .andExpect(jsonPath("$.creatorRole", is("EMPLOYEE")))
                 .andExpect(jsonPath("$.intent", is("VPN_CONNECTION_ISSUE")))
                 .andExpect(jsonPath("$.ticketContext.intent", is("VPN_CONNECTION_ISSUE")))
-                .andExpect(jsonPath("$.statusHistory", hasSize(1)))
+                .andExpect(jsonPath("$.statusHistory", hasSize(3)))
                 .andExpect(jsonPath("$.statusHistory[0].toStatus", is("NEW")));
     }
 
@@ -112,7 +112,7 @@ class TicketControllerIntegrationTest {
                                 null,
                                 "invalid close"))))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Transition not allowed from NEW to CLOSED for role IT_ENGINEER")));
+                .andExpect(jsonPath("$.message", is("Transition not allowed from NEED_MORE_INFO to CLOSED for role IT_ENGINEER")));
     }
 
     @Test
@@ -128,7 +128,7 @@ class TicketControllerIntegrationTest {
                                 null,
                                 "trying to triage"))))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.message", is("Role EMPLOYEE cannot move ticket from NEW to TRIAGING")));
+                .andExpect(jsonPath("$.message", is("Role EMPLOYEE cannot move ticket from NEED_MORE_INFO to TRIAGING")));
     }
 
     @Test

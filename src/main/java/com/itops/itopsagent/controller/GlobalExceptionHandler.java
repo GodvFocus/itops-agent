@@ -25,6 +25,11 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage());
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException exception) {
+        return error(HttpStatus.BAD_REQUEST, exception.getMessage());
+    }
+
     @ExceptionHandler(TicketTransitionForbiddenException.class)
     public ResponseEntity<Map<String, Object>> handleForbidden(TicketTransitionForbiddenException exception) {
         return error(HttpStatus.FORBIDDEN, exception.getMessage());

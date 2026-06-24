@@ -8,10 +8,39 @@
 - `mapper/`：持久层接口，统一按 `MyBatis-Plus` 风格组织
 - `service/`：业务服务接口
 - `service/agent/`：Agent 理解、上下文组装与结构化输出校验
-- `service/harness/`：Candidate Plan 的基础校验与 Harness stub 逻辑
+- `service/harness/`：Tool Registry、风险策略、异步工具执行、幂等与 ToolCallLog
 - `service/impl/`：业务服务实现
 - `utils/`：通用工具与自定义异常
 - `agent_runtime/`：Python Agent Runtime，包含节点、检索、计划生成与测试
+
+## 当前阶段事实
+
+- 当前主线已经完成 `Phase 5`：
+  - Java 侧已具备 Harness 风险裁决、异步工具执行、内存版队列语义、票据执行锁、MySQL 幂等记录与 `tool_call_log`
+  - 已具备 `approval_task`、审批通过恢复执行、审批拒绝升级人工、用户确认关闭
+  - 已提供 `GET /api/tickets/{ticketId}/timeline`、`GET /api/approvals`、`POST /api/approvals/{approvalId}/approve|reject`
+  - `POST /api/harness/plans/validate` 用于预校验
+  - `POST /api/harness/plans/execute` 用于真实进入 Harness 异步执行链路
+- RabbitMQ / Redis 当前是“配置入口已预留、实现仍以内存适配器为默认值”
+- Qdrant 当前支持通过统一命名配置接真实地址；未配置时回退到内存向量仓储
+
+## 运行配置约定
+
+- Java 侧统一配置文件为 `src/main/resources/application.yaml`
+- 项目统一使用 `ITOPS_*` 命名的环境变量约定，覆盖：
+  - MySQL
+  - RabbitMQ
+  - Redis
+  - Qdrant
+  - Embedding 模型
+  - Chat 模型
+- Python 侧不直接解析 Spring YAML，而是按以下顺序读取同名配置：
+  1. 仓库根目录 `.env`
+  2. 仓库根目录 `.env.local`
+  3. `agent_runtime/.env`
+  4. 系统环境变量最终覆盖
+- Python 依赖清单维护在 `agent_runtime/requirements.txt`
+- Python 本地配置示例维护在项目根 `.env.example`
 
 ## 编码偏好
 
@@ -66,3 +95,4 @@
 
 - 每次开发代码前先参考`docs\itops_agent_codex_task_pack\prompts\CODEX_MASTER_PROMPT.md`
 - Phase 3 之后如涉及 Candidate Plan、Tool Registry、Harness Decision 等契约，优先同步检查 `docs\itops_agent_codex_task_pack\contracts\`
+- 做收尾同步时，优先更新 `README.md`、`agent_runtime/README.md` 与本文件，避免项目说明停留在旧 Phase

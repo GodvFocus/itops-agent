@@ -17,7 +17,7 @@ public class SlotExtractor {
     private static final Pattern EMPLOYEE_ID_PATTERN = Pattern.compile("(?i)\\b([A-Z]\\d{4,})\\b");
     private static final Pattern ERROR_PATTERN = Pattern.compile("(提示|报错|error|显示)[:：\\s]*([^，。；;\\n]+)", Pattern.CASE_INSENSITIVE);
     private static final Pattern DURATION_PATTERN = Pattern.compile("(([0-9一二两三四五六七八九十]+)\\s*(天|周|个月|月|小时))|(长期)|(永久)", Pattern.CASE_INSENSITIVE);
-    private static final Pattern TARGET_SYSTEM_PATTERN = Pattern.compile("(OA|ERP|CRM|SAP|JIRA|GITLAB|邮箱|EMAIL|财务系统|HR系统|BI)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern TARGET_SYSTEM_PATTERN = Pattern.compile("(生产数据库|数据库|database|OA|ERP|CRM|SAP|JIRA|GITLAB|邮箱|EMAIL|财务系统|HR系统|BI)", Pattern.CASE_INSENSITIVE);
 
     private final AgentStructuredOutputValidator validator;
 
@@ -95,9 +95,9 @@ public class SlotExtractor {
     }
 
     private String extractErrorMessage(String text, String lower) {
-        String matched = firstGroup(ERROR_PATTERN, text);
-        if (matched != null) {
-            return matched;
+        Matcher matcher = ERROR_PATTERN.matcher(text);
+        if (matcher.find() && matcher.groupCount() >= 2 && matcher.group(2) != null) {
+            return matcher.group(2).trim();
         }
         if (lower.contains("账号已锁定")) {
             return "账号已锁定";
@@ -114,6 +114,12 @@ public class SlotExtractor {
     private String normalizeSystem(String value) {
         if (value == null) {
             return null;
+        }
+        if (value.contains("生产数据库")) {
+            return "production database";
+        }
+        if (value.equalsIgnoreCase("database") || value.contains("数据库")) {
+            return "database";
         }
         return value.toUpperCase(Locale.ROOT).replace("邮箱", "EMAIL");
     }
@@ -157,7 +163,7 @@ public class SlotExtractor {
     }
 
     private Boolean extractMfaChanged(String lower) {
-        if (containsAny(lower, "换绑", "更换手机", "重置 mfa", "重置mfa", "mfa recently changed", "刚换手机")) {
+        if (containsAny(lower, "换绑", "更换手机", "换过手机", "重置 mfa", "重置mfa", "mfa recently changed", "刚换手机")) {
             return Boolean.TRUE;
         }
         if (containsAny(lower, "没有改 mfa", "未改mfa", "mfa 没变")) {
