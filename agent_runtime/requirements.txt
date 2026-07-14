@@ -5,6 +5,8 @@ python-dotenv>=1,<2
 # 测试依赖
 pytest>=8,<9
 
-# 可选依赖：需要真实 LangGraph / Qdrant 时再安装
-# langgraph
+# LangGraph 工作流引擎（P0：Agent 状态图编排）
+langgraph>=0.2,<1
+
+# 可选依赖：需要真实 Qdrant 时再安装
 # qdrant-client

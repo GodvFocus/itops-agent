@@ -6,7 +6,7 @@ import json
 import sys
 from typing import Any
 
-from agent_runtime.graph.workflow import build_workflow, run_workflow
+from agent_runtime.graph.workflow import build_workflow, run_langgraph, run_workflow
 from agent_runtime.llm_client.mock import MockLLMClient
 
 
@@ -29,15 +29,18 @@ def _normalize_context(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def run_analysis(payload: dict[str, Any]) -> dict[str, Any]:
-    """执行一次 Agent Runtime 分析，并返回统一 JSON 结果。"""
+    """执行一次 Agent Runtime 分析，并返回统一 JSON 结果。
 
-    workflow = build_workflow()
+    langgraph 可用时走真实状态图编排，否则回退到顺序执行器。
+    两种路径返回的输出契约保持一致。
+    """
+
     client = MockLLMClient()
+    workflow = build_workflow(client)
     context = _normalize_context(payload)
 
     if workflow["mode"] == "langgraph":
-        # 当前项目仍以顺序执行结果为准；即便 LangGraph 可用，也保持输出契约一致。
-        result = run_workflow(client, context)
+        result = run_langgraph(workflow["graph"], context)
     else:
         result = workflow["runner"](client, context)
 

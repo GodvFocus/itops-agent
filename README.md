@@ -132,6 +132,8 @@
 
 ## 核心能力
 
+更细的能力边界、Mock 范围和后续优先级见 [项目能力说明](docs/PROJECT_CAPABILITY_STATEMENT.md)。
+
 ### 工单闭环
 
 - 创建工单
