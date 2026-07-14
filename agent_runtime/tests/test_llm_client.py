@@ -245,7 +245,7 @@ def test_factory_should_return_mock_for_mock_provider():
         qdrant_enabled=False,
         qdrant_url="",
         qdrant_collection_name="sop_catalog",
-        embedding=ModelConfig(provider="mock", model="hash-embedding", endpoint="", api_key=""),
+        embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(provider="mock", model="mock-chat", endpoint="", api_key=""),
     )
     client = create_llm_client(settings)
@@ -257,7 +257,7 @@ def test_factory_should_return_openai_compatible_for_deepseek():
         qdrant_enabled=False,
         qdrant_url="",
         qdrant_collection_name="sop_catalog",
-        embedding=ModelConfig(provider="mock", model="hash-embedding", endpoint="", api_key=""),
+        embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(
             provider="deepseek",
             model="deepseek-chat",
@@ -277,7 +277,7 @@ def test_factory_should_fallback_to_mock_when_api_key_missing():
         qdrant_enabled=False,
         qdrant_url="",
         qdrant_collection_name="sop_catalog",
-        embedding=ModelConfig(provider="mock", model="hash-embedding", endpoint="", api_key=""),
+        embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(
             provider="deepseek",
             model="deepseek-chat",
@@ -294,7 +294,7 @@ def test_factory_should_fallback_to_mock_for_unknown_provider():
         qdrant_enabled=False,
         qdrant_url="",
         qdrant_collection_name="sop_catalog",
-        embedding=ModelConfig(provider="mock", model="hash-embedding", endpoint="", api_key=""),
+        embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(provider="unknown-llm", model="x", endpoint="http://x", api_key="k"),
     )
     client = create_llm_client(settings)

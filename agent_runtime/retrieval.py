@@ -1,47 +1,24 @@
-"""提供 Qdrant 兼容的 SOP 向量入库与检索能力。"""
+"""提供 Qdrant 兼容的 SOP 向量入库与检索能力。
+
+Embedding 使用 Ollama 部署的 bge-m3 模型（1024 维向量），
+不再保留 hash embedding 降级逻辑。
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import lru_cache
-import hashlib
 import math
-import re
 from typing import Any
 
 from agent_runtime.config import get_runtime_settings
+from agent_runtime.embedding import EMBEDDING_DIMENSIONS, Embedder, create_embedder
 from agent_runtime.models import SopMatch, SopMetadata, SopRetrievalResult
 from agent_runtime.sop_catalog import get_seed_sops
 
 
 def _risk_order(value: str) -> int:
     return {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "FORBIDDEN": 4}[value]
-
-
-class SimpleHashEmbedding:
-    """用稳定哈希做轻量向量化，避免本地依赖外部 embedding 服务。"""
-
-    def __init__(self, dimensions: int = 96):
-        self.dimensions = dimensions
-
-    def embed(self, text: str) -> list[float]:
-        vector = [0.0] * self.dimensions
-        for token in self._tokenize(text):
-            digest = hashlib.sha256(token.encode("utf-8")).digest()
-            bucket = int.from_bytes(digest[:2], "big") % self.dimensions
-            sign = 1.0 if digest[2] % 2 == 0 else -1.0
-            vector[bucket] += sign
-        norm = math.sqrt(sum(value * value for value in vector))
-        if norm == 0:
-            return vector
-        return [value / norm for value in vector]
-
-    def _tokenize(self, text: str) -> list[str]:
-        normalized = text.upper()
-        english_tokens = re.findall(r"[A-Z0-9_]+", normalized)
-        chinese = "".join(char for char in text if "\u4e00" <= char <= "\u9fff")
-        bigrams = [chinese[index:index + 2] for index in range(max(0, len(chinese) - 1))]
-        return english_tokens + bigrams
 
 
 @dataclass(slots=True)
@@ -53,7 +30,7 @@ class QdrantPoint:
 
 
 class InMemoryQdrantCollection:
-    """本地兜底实现保持 Qdrant 的 upsert/search 语义，便于后续切换真实服务。"""
+    """本地兜底实现保持 Qdrant 的 upsert/search 语义，便于未部署 Qdrant 时使用。"""
 
     def __init__(self):
         self._points: dict[str, QdrantPoint] = {}
@@ -74,7 +51,7 @@ class InMemoryQdrantCollection:
 class QdrantCompatibleVectorStore:
     """
     优先尝试连接真实 Qdrant。
-    本地没有 client 或没有 URL 时回退到内存实现，保证 phase 3 在离线环境也能验收。
+    本地没有 client 或没有 URL 时回退到内存实现，保证离线环境也能验收。
     """
 
     def __init__(self, collection_name: str | None = None, url: str | None = None):
@@ -97,7 +74,8 @@ class QdrantCompatibleVectorStore:
             except Exception:
                 client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=VectorParams(size=96, distance=Distance.COSINE),
+                    # bge-m3 输出 1024 维向量
+                    vectors_config=VectorParams(size=EMBEDDING_DIMENSIONS, distance=Distance.COSINE),
                 )
 
             class RemoteBackend:
@@ -137,7 +115,7 @@ class QdrantCompatibleVectorStore:
 
 
 class SopRetriever:
-    def __init__(self, store: QdrantCompatibleVectorStore, embedder: SimpleHashEmbedding, sop_catalog: tuple[SopMetadata, ...]):
+    def __init__(self, store: QdrantCompatibleVectorStore, embedder: Embedder, sop_catalog: tuple[SopMetadata, ...]):
         self.store = store
         self.embedder = embedder
         self.sop_catalog = sop_catalog
@@ -303,8 +281,9 @@ def _cosine_similarity(left: list[float], right: list[float]) -> float:
 
 @lru_cache(maxsize=1)
 def get_default_retriever() -> SopRetriever:
+    """创建默认的 SOP 检索器，使用 Ollama bge-m3 真实 embedding。"""
     return SopRetriever(
         store=QdrantCompatibleVectorStore(),
-        embedder=SimpleHashEmbedding(),
+        embedder=create_embedder(),
         sop_catalog=get_seed_sops(),
     )

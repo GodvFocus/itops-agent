@@ -63,10 +63,10 @@ itops:
       collection-name: ${ITOPS_QDRANT_COLLECTION:sop_catalog}
   ai:
     embedding:
-      provider: ${ITOPS_EMBEDDING_PROVIDER:mock}
-      model: ${ITOPS_EMBEDDING_MODEL:hash-embedding}
-      endpoint: ${ITOPS_EMBEDDING_ENDPOINT:}
-      api-key: ${ITOPS_EMBEDDING_API_KEY:}
+      provider: ${ITOPS_EMBEDDING_PROVIDER:ollama}
+      model: ${ITOPS_EMBEDDING_MODEL:bge-m3:latest}
+      endpoint: ${ITOPS_EMBEDDING_ENDPOINT:http://localhost:11434/v1}
+      api-key: ${ITOPS_EMBEDDING_API_KEY:ollama}
     chat:
       provider: ${ITOPS_CHAT_PROVIDER:mock}
       model: ${ITOPS_CHAT_MODEL:mock-chat}

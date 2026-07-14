@@ -131,6 +131,7 @@
 - pytest
 - LangGraph（Agent 状态图编排）
 - OpenAI SDK（DeepSeek/Qwen/GLM 通过 OpenAI 兼容协议接入）
+- Ollama + bge-m3（本地 Embedding 模型）
 
 ## 核心能力
 
@@ -513,7 +514,7 @@ Phase 5 本地验证结果：
 
 ## 后续方向
 
-- 真实 Embedding 模型与 Qdrant 检索接入
+- 真实 Qdrant 检索与 SOP reindex
 - 审批策略、审批链路与人工接管编排增强
 - 真实 Redis / RabbitMQ 客户端替换当前内存适配器
 - OpenTelemetry 链路追踪和 Agent 节点可观测性

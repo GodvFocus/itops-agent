@@ -51,6 +51,20 @@ CHAT_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
     },
 }
 
+# Embedding 供应商默认配置。
+# Ollama 本地部署 bge-m3，通过 OpenAI 兼容协议调用。
+EMBEDDING_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
+    "ollama": {
+        "endpoint": "http://localhost:11434/v1",
+        "model": "bge-m3:latest",
+        "api_key": "ollama",
+    },
+    "openai": {
+        "endpoint": "https://api.openai.com/v1",
+        "model": "text-embedding-3-small",
+    },
+}
+
 
 _DEFAULT_DOTENV_PATHS = (
     Path(__file__).resolve().parents[1] / ".env",
@@ -90,19 +104,21 @@ def _read_model(
     default_provider: str,
     default_model: str,
     merged_values: dict[str, str],
+    provider_defaults: dict[str, dict[str, str]] | None = None,
 ) -> ModelConfig:
     provider = _read_value(f"ITOPS_{prefix}_PROVIDER", merged_values, default_provider)
-    provider_defaults = CHAT_PROVIDER_DEFAULTS.get(provider.lower(), {})
+    defaults = (provider_defaults or {}).get(provider.lower(), {})
 
     # 用户显式配置优先；未配置时使用供应商默认值；都没有则用传入的 default
-    endpoint = _read_value(f"ITOPS_{prefix}_ENDPOINT", merged_values, "") or provider_defaults.get("endpoint", "")
-    model = _read_value(f"ITOPS_{prefix}_MODEL", merged_values, "") or provider_defaults.get("model", default_model)
+    endpoint = _read_value(f"ITOPS_{prefix}_ENDPOINT", merged_values, "") or defaults.get("endpoint", "")
+    model = _read_value(f"ITOPS_{prefix}_MODEL", merged_values, "") or defaults.get("model", default_model)
+    api_key = _read_value(f"ITOPS_{prefix}_API_KEY", merged_values, "") or defaults.get("api_key", "")
 
     return ModelConfig(
         provider=provider,
         model=model,
         endpoint=endpoint,
-        api_key=_read_value(f"ITOPS_{prefix}_API_KEY", merged_values, ""),
+        api_key=api_key,
     )
 
 
@@ -123,8 +139,8 @@ def load_runtime_settings(
         qdrant_enabled=_read_bool("ITOPS_QDRANT_ENABLED", bool(qdrant_url), merged_values),
         qdrant_url=qdrant_url,
         qdrant_collection_name=_read_value("ITOPS_QDRANT_COLLECTION", merged_values, "sop_catalog"),
-        embedding=_read_model("EMBEDDING", "mock", "hash-embedding", merged_values),
-        chat=_read_model("CHAT", "mock", "mock-chat", merged_values),
+        embedding=_read_model("EMBEDDING", "ollama", "bge-m3:latest", merged_values, EMBEDDING_PROVIDER_DEFAULTS),
+        chat=_read_model("CHAT", "mock", "mock-chat", merged_values, CHAT_PROVIDER_DEFAULTS),
     )
 
 

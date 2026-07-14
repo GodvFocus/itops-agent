@@ -23,6 +23,7 @@
   - `POST /api/harness/plans/execute` 用于真实进入 Harness 异步执行链路
 - Agent 侧已使用 LangGraph StateGraph 实现真实状态图编排（含条件边、节点级 trace）
 - Agent 侧已通过 OpenAI 兼容协议接入真实 LLM（支持 DeepSeek/Qwen/GLM 配置化切换）
+- Agent 侧已通过 Ollama 接入 bge-m3 真实 Embedding 模型（1024 维向量）
 - RabbitMQ / Redis 当前是"配置入口已预留、实现仍以内存适配器为默认值"
 - Qdrant 当前支持通过统一命名配置接真实地址；未配置时回退到内存向量仓储
 
@@ -69,6 +70,7 @@
 - Agent Runtime 的节点输出契约、上下文对象与测试示例都应围绕 `Pydantic + pytest` 组织。
 - Agent 工作流统一使用 `LangGraph StateGraph`，未安装时回退到顺序执行器。
 - LLM Client 通过 `ITOPS_CHAT_PROVIDER` 配置化切换（mock/deepseek/qwen/glm），真实供应商走 OpenAI 兼容协议。
+- Embedding 通过 `ITOPS_EMBEDDING_PROVIDER` 配置化切换，默认 ollama + bge-m3:latest。
 
 ## 当前统一技术栈
 
@@ -85,6 +87,7 @@
 - pytest
 - LangGraph（Agent 状态图编排）
 - OpenAI SDK（DeepSeek/Qwen/GLM 通过 OpenAI 兼容协议接入）
+- Ollama + bge-m3（本地 Embedding 模型）
 
 ## Git 约束
 
