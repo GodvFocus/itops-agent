@@ -8,5 +8,8 @@ pytest>=8,<9
 # LangGraph 工作流引擎（P0：Agent 状态图编排）
 langgraph>=0.2,<1
 
+# OpenAI SDK（DeepSeek / Qwen / GLM 均通过 OpenAI 兼容协议接入）
+openai>=1,<2
+
 # 可选依赖：需要真实 Qdrant 时再安装
 # qdrant-client

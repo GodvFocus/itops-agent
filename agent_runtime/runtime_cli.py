@@ -7,7 +7,7 @@ import sys
 from typing import Any
 
 from agent_runtime.graph.workflow import build_workflow, run_langgraph, run_workflow
-from agent_runtime.llm_client.mock import MockLLMClient
+from agent_runtime.llm_client import create_llm_client
 
 
 def _normalize_context(payload: dict[str, Any]) -> dict[str, Any]:
@@ -35,7 +35,7 @@ def run_analysis(payload: dict[str, Any]) -> dict[str, Any]:
     两种路径返回的输出契约保持一致。
     """
 
-    client = MockLLMClient()
+    client = create_llm_client()
     workflow = build_workflow(client)
     context = _normalize_context(payload)
 

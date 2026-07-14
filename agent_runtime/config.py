@@ -26,6 +26,32 @@ class RuntimeSettings:
     chat: ModelConfig
 
 
+# 各供应商的默认 base_url 和 model，方便用户只配 provider + api_key 即可使用。
+# 用户仍可通过 ITOPS_CHAT_ENDPOINT / ITOPS_CHAT_MODEL 覆盖默认值。
+CHAT_PROVIDER_DEFAULTS: dict[str, dict[str, str]] = {
+    "deepseek": {
+        "endpoint": "https://api.deepseek.com",
+        "model": "deepseek-chat",
+    },
+    "qwen": {
+        "endpoint": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "model": "qwen-plus",
+    },
+    "glm": {
+        "endpoint": "https://open.bigmodel.cn/api/paas/v4",
+        "model": "glm-4-flash",
+    },
+    "openai": {
+        "endpoint": "https://api.openai.com/v1",
+        "model": "gpt-4o-mini",
+    },
+    "mock": {
+        "endpoint": "",
+        "model": "mock-chat",
+    },
+}
+
+
 _DEFAULT_DOTENV_PATHS = (
     Path(__file__).resolve().parents[1] / ".env",
     Path(__file__).resolve().parents[1] / ".env.local",
@@ -65,10 +91,17 @@ def _read_model(
     default_model: str,
     merged_values: dict[str, str],
 ) -> ModelConfig:
+    provider = _read_value(f"ITOPS_{prefix}_PROVIDER", merged_values, default_provider)
+    provider_defaults = CHAT_PROVIDER_DEFAULTS.get(provider.lower(), {})
+
+    # 用户显式配置优先；未配置时使用供应商默认值；都没有则用传入的 default
+    endpoint = _read_value(f"ITOPS_{prefix}_ENDPOINT", merged_values, "") or provider_defaults.get("endpoint", "")
+    model = _read_value(f"ITOPS_{prefix}_MODEL", merged_values, "") or provider_defaults.get("model", default_model)
+
     return ModelConfig(
-        provider=_read_value(f"ITOPS_{prefix}_PROVIDER", merged_values, default_provider),
-        model=_read_value(f"ITOPS_{prefix}_MODEL", merged_values, default_model),
-        endpoint=_read_value(f"ITOPS_{prefix}_ENDPOINT", merged_values, ""),
+        provider=provider,
+        model=model,
+        endpoint=endpoint,
         api_key=_read_value(f"ITOPS_{prefix}_API_KEY", merged_values, ""),
     )
 

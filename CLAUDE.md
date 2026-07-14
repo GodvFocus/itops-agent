@@ -15,13 +15,15 @@
 
 ## 当前阶段事实
 
-- 当前主线已经完成 `Phase 5`：
+- 当前主线已经完成 `Phase 5`，并已推进 P0 Agent 升级：
   - Java 侧已具备 Harness 风险裁决、异步工具执行、内存版队列语义、票据执行锁、MySQL 幂等记录与 `tool_call_log`
   - 已具备 `approval_task`、审批通过恢复执行、审批拒绝升级人工、用户确认关闭
   - 已提供 `GET /api/tickets/{ticketId}/timeline`、`GET /api/approvals`、`POST /api/approvals/{approvalId}/approve|reject`
   - `POST /api/harness/plans/validate` 用于预校验
   - `POST /api/harness/plans/execute` 用于真实进入 Harness 异步执行链路
-- RabbitMQ / Redis 当前是“配置入口已预留、实现仍以内存适配器为默认值”
+- Agent 侧已使用 LangGraph StateGraph 实现真实状态图编排（含条件边、节点级 trace）
+- Agent 侧已通过 OpenAI 兼容协议接入真实 LLM（支持 DeepSeek/Qwen/GLM 配置化切换）
+- RabbitMQ / Redis 当前是"配置入口已预留、实现仍以内存适配器为默认值"
 - Qdrant 当前支持通过统一命名配置接真实地址；未配置时回退到内存向量仓储
 
 ## 运行配置约定
@@ -47,7 +49,7 @@
 - 实体类优先使用 `Lombok` 降低模板代码噪音。
 - 控制层保持轻量，业务逻辑统一下沉到 `service/impl/`。
 - 状态流转、并发保护、审计持久化等核心逻辑统一放在服务层实现。
-- 关键代码需要补充中文注释，重点说明“为什么这样做”，不要写成语法翻译。
+- 尽可能编写代码注释，重点说明“为什么这样做”，不要写成语法翻译。
 - 新增后端模块时优先沿用现有分层结构，不随意发散目录层级。
 
 ## 技术栈约束
@@ -65,6 +67,8 @@
 - 结构化数据校验统一使用 `Pydantic`。
 - 测试统一使用 `pytest`。
 - Agent Runtime 的节点输出契约、上下文对象与测试示例都应围绕 `Pydantic + pytest` 组织。
+- Agent 工作流统一使用 `LangGraph StateGraph`，未安装时回退到顺序执行器。
+- LLM Client 通过 `ITOPS_CHAT_PROVIDER` 配置化切换（mock/deepseek/qwen/glm），真实供应商走 OpenAI 兼容协议。
 
 ## 当前统一技术栈
 
@@ -79,6 +83,8 @@
 - Python 3
 - Pydantic
 - pytest
+- LangGraph（Agent 状态图编排）
+- OpenAI SDK（DeepSeek/Qwen/GLM 通过 OpenAI 兼容协议接入）
 
 ## Git 约束
 

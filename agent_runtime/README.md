@@ -4,7 +4,9 @@
 
 当前实现特点：
 
-- 提供 `LLM Client` 抽象与 `MockLLMClient`
+- 提供 `LLM Client` 抽象、`MockLLMClient` 和 `OpenAICompatibleLLMClient`
+- 通过 OpenAI 兼容协议接入真实 LLM，支持 DeepSeek、Qwen、GLM 配置化切换
+- 供应商默认 base_url / model 自动填充，用户只需配置 `ITOPS_CHAT_PROVIDER` + `ITOPS_CHAT_API_KEY`
 - 提供 `classify_intent`、`extract_slots`、`generate_question`、`retrieve_sop`、`generate_plan` 五个真实节点
 - 提供 10 条结构化 SOP seed 数据
 - 提供 Tool Registry 读取、Qdrant 兼容向量入库与检索能力
@@ -49,5 +51,23 @@ D:/anaconda3/envs/lc/python.exe -m pip install -r agent_runtime/requirements.txt
 - `ITOPS_CHAT_MODEL`
 - `ITOPS_CHAT_ENDPOINT`
 - `ITOPS_CHAT_API_KEY`
+
+### Chat 模型配置
+
+`ITOPS_CHAT_PROVIDER` 支持以下值：
+
+| Provider | 说明 | 默认 base_url | 默认 model |
+| --- | --- | --- | --- |
+| `mock` | 规则驱动的 Mock（默认，离线可运行） | — | mock-chat |
+| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+| `qwen` | 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` |
+| `openai` | OpenAI 官方 | `https://api.openai.com/v1` | `gpt-4o-mini` |
+
+只需配置 `ITOPS_CHAT_PROVIDER` 和 `ITOPS_CHAT_API_KEY` 即可使用真实 LLM。
+`ITOPS_CHAT_ENDPOINT` 和 `ITOPS_CHAT_MODEL` 不配置时自动填充供应商默认值，显式配置则覆盖默认值。
+
+当 `ITOPS_CHAT_PROVIDER` 配置为真实供应商但缺少 `ITOPS_CHAT_API_KEY` 时，自动降级到 MockLLMClient 保证链路不中断。
+真实 LLM 调用失败时也会自动重试并最终降级到 MockLLMClient。
 
 这样可以保持 Java / Python 运行时解耦，同时避免后续接入 Qdrant、Embedding 模型、Chat 模型时出现两套配置命名。

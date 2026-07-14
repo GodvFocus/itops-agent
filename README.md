@@ -104,9 +104,9 @@
   - 前端静态演示台展示工单、对话记录、结构化上下文、计划、审批、工具时间线与处理摘要
   - 用户确认已解决自动关闭，未解决自动升级人工
   - 三条核心 Demo Case E2E 与基础评测测试
-  - Python Agent Runtime 工作流与 `Pydantic` 输出契约
+  - Python Agent Runtime 使用 LangGraph StateGraph 真实状态图编排（含条件边、节点级 trace）与 `Pydantic` 输出契约
+  - 通过 OpenAI 兼容协议接入真实 LLM（DeepSeek/Qwen/GLM 配置化切换），含 JSON 结构化输出、重试降级
 - 暂未实现：
-  - 真实 LLM 接入
   - 多级审批与复杂审批配置
   - 真实 RabbitMQ / Redis 客户端接入
   - 真实企业工具系统接入
@@ -129,6 +129,8 @@
 - Python 3
 - Pydantic
 - pytest
+- LangGraph（Agent 状态图编排）
+- OpenAI SDK（DeepSeek/Qwen/GLM 通过 OpenAI 兼容协议接入）
 
 ## 核心能力
 
@@ -193,11 +195,12 @@
 
 ### Python Agent Runtime
 
-- 提供 `LLM Client` 抽象与 `MockLLMClient`
-- 提供 `classify_intent`、`extract_slots`、`generate_question`、`retrieve_sop`、`generate_plan` 五个节点
+- 提供 `LLM Client` 抽象、`MockLLMClient` 与 `OpenAICompatibleLLMClient`
+- 通过 OpenAI 兼容协议接入真实 LLM，支持 DeepSeek、Qwen、GLM 配置化切换
+- 提供 `classify_intent`、`extract_slots`、`generate_question`、`retrieve_sop`、`generate_plan` 五个真实节点
 - 提供 `ContextBuilder`
 - 提供 Tool Registry 读取、SOP seed 与 Qdrant 兼容检索能力
-- 优先尝试构建 `LangGraph` 工作流，未安装时回退到顺序执行器
+- 使用 LangGraph StateGraph 实现真实状态图编排，含条件边和节点级 trace；未安装 langgraph 时回退到顺序执行器
 - 所有节点输出统一通过 `Pydantic` 模型校验
 
 ### 状态机约束
@@ -472,7 +475,7 @@ src/main/java/com/itops/itopsagent
 agent_runtime
 ├── context/       Agent 上下文组装
 ├── graph/         LangGraph / 顺序工作流
-├── llm_client/    LLM Client 抽象与 Mock 实现
+├── llm_client/    LLM Client 抽象、Mock、OpenAI 兼容真实 LLM 与提示词
 ├── nodes/         Agent 节点实现
 └── tests/         Phase 2 / Phase 3 Python 测试
 ```
@@ -503,14 +506,15 @@ agent_runtime
 - Phase 5 三条核心演示链路 E2E
 - Phase 5 基础评测指标测试
 
-最近一次 Phase 5 本地验证结果：
+Phase 5 本地验证结果：
 
 - `mvn -q test`：31 个 Java 测试通过
-- `D:/anaconda3/envs/lc/python.exe -m pytest agent_runtime/tests -q`：9 个测试通过
+- `D:/anaconda3/envs/lc/python.exe -m pytest agent_runtime/tests -q`：43 个测试通过
 
 ## 后续方向
 
-- 真实 LLM 与工具调用链路接入
+- 真实 Embedding 模型与 Qdrant 检索接入
 - 审批策略、审批链路与人工接管编排增强
 - 真实 Redis / RabbitMQ 客户端替换当前内存适配器
-- Embedding / Chat 模型真实接入
+- OpenTelemetry 链路追踪和 Agent 节点可观测性
+- Python Runtime 服务化（HTTP/gRPC 独立部署）

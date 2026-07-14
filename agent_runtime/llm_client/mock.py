@@ -1,4 +1,13 @@
-"""使用规则驱动的 Mock LLM，优先保证节点契约与演示链路稳定。"""
+"""使用规则驱动的 Mock LLM，优先保证节点契约与演示链路稳定。
+
+MockLLMClient 是真实 LLM 的离线兜底实现：
+- 意图分类：关键词匹配
+- 槽位抽取：正则与规则匹配
+- 追问生成：基于缺失槽位的模板文案
+
+共享的槽位解析逻辑（resolve_missing / build_text / SLOT_LABELS）已抽取到 slot_utils，
+MockLLMClient 和真实 LLM 客户端共用同一套必填槽位定义。
+"""
 
 from __future__ import annotations
 
@@ -6,22 +15,13 @@ import re
 from dataclasses import dataclass
 
 from agent_runtime.llm_client.base import LLMRequest
-
-_CHINESE_SLOT_LABELS = {
-    "employeeId": "员工编号",
-    "targetSystem": "目标系统",
-    "deviceType": "设备类型",
-    "errorMessage": "报错信息",
-    "permissionLevel": "权限级别",
-    "reason": "申请原因",
-    "duration": "申请时长",
-}
+from agent_runtime.llm_client.slot_utils import SLOT_LABELS, build_text, resolve_missing
 
 
 @dataclass(slots=True)
 class MockLLMClient:
     def invoke(self, request: LLMRequest) -> dict:
-        text = _build_text(request.context)
+        text = build_text(request.context)
         lower = text.lower()
 
         if request.node_name == "classify_intent":
@@ -69,7 +69,7 @@ class MockLLMClient:
         if request.node_name == "extract_slots":
             intent = request.context.get("intent", "UNKNOWN")
             slots = _extract_slots(text, lower)
-            missing = _resolve_missing(intent, slots)
+            missing = resolve_missing(intent, slots)
             return {"slots": slots, "missingSlots": missing, "reasoning": "根据规则抽取槽位"}
 
         if request.node_name == "generate_question":
@@ -83,7 +83,7 @@ class MockLLMClient:
                 }
             if not missing_slots:
                 return {"shouldAskUser": False, "question": "", "nextStep": "UNDERSTANDING_READY"}
-            labels = "、".join(_CHINESE_SLOT_LABELS.get(slot, slot) for slot in missing_slots)
+            labels = "、".join(SLOT_LABELS.get(slot, slot) for slot in missing_slots)
             return {
                 "shouldAskUser": True,
                 "question": f"为了继续处理，请补充：{labels}。",
@@ -174,23 +174,3 @@ def _extract_segment(text: str, marker: str) -> str:
             fragment = fragment.split(delimiter, 1)[0]
             break
     return fragment.strip(" ：:。；，,")
-
-
-def _build_text(context: dict) -> str:
-    parts = []
-    ticket_facts = context.get("ticket_facts", {})
-    parts.append(str(ticket_facts.get("title", "")))
-    parts.append(str(ticket_facts.get("description", "")))
-    for message in context.get("recent_messages", []):
-        parts.append(str(message.get("content", "")))
-    return "\n".join(parts)
-
-
-def _resolve_missing(intent: str, slots: dict) -> list[str]:
-    required = {
-        "ACCOUNT_LOGIN_ISSUE": ["employeeId", "targetSystem"],
-        "VPN_CONNECTION_ISSUE": ["employeeId", "deviceType", "errorMessage"],
-        "PERMISSION_REQUEST": ["employeeId", "targetSystem", "permissionLevel", "reason", "duration"],
-        "UNKNOWN": [],
-    }[intent]
-    return [slot for slot in required if not slots.get(slot)]
