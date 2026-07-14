@@ -1,121 +1,26 @@
-"""提供 Qdrant 兼容的 SOP 向量入库与检索能力。
+"""SOP 向量入库与检索能力。
 
-Embedding 使用 Ollama 部署的 bge-m3 模型（1024 维向量），
-不再保留 hash embedding 降级逻辑。
+向量存储使用 Milvus（本地 Docker 部署），Embedding 使用 Ollama bge-m3（1024 维向量）。
+不保留内存降级逻辑——Milvus 是系统运行的必要依赖。
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from functools import lru_cache
-import math
 from typing import Any
 
-from agent_runtime.config import get_runtime_settings
-from agent_runtime.embedding import EMBEDDING_DIMENSIONS, Embedder, create_embedder
+from agent_runtime.embedding import Embedder, create_embedder
 from agent_runtime.models import SopMatch, SopMetadata, SopRetrievalResult
 from agent_runtime.sop_catalog import get_seed_sops
+from agent_runtime.vector_store import MilvusVectorStore, VectorPoint
 
 
 def _risk_order(value: str) -> int:
     return {"LOW": 1, "MEDIUM": 2, "HIGH": 3, "FORBIDDEN": 4}[value]
 
 
-@dataclass(slots=True)
-class QdrantPoint:
-    point_id: str
-    vector: list[float]
-    payload: dict[str, Any]
-    score: float = 0.0
-
-
-class InMemoryQdrantCollection:
-    """本地兜底实现保持 Qdrant 的 upsert/search 语义，便于未部署 Qdrant 时使用。"""
-
-    def __init__(self):
-        self._points: dict[str, QdrantPoint] = {}
-
-    def upsert(self, points: list[QdrantPoint]) -> None:
-        for point in points:
-            self._points[point.point_id] = point
-
-    def search(self, query_vector: list[float], limit: int) -> list[QdrantPoint]:
-        scored: list[QdrantPoint] = []
-        for point in self._points.values():
-            score = _cosine_similarity(query_vector, point.vector)
-            scored.append(QdrantPoint(point.point_id, point.vector, point.payload, score))
-        scored.sort(key=lambda item: item.score, reverse=True)
-        return scored[:limit]
-
-
-class QdrantCompatibleVectorStore:
-    """
-    优先尝试连接真实 Qdrant。
-    本地没有 client 或没有 URL 时回退到内存实现，保证离线环境也能验收。
-    """
-
-    def __init__(self, collection_name: str | None = None, url: str | None = None):
-        settings = get_runtime_settings()
-        self.collection_name = collection_name or settings.qdrant_collection_name
-        self.url = url if url is not None else settings.qdrant_url
-        self._backend = self._build_backend()
-
-    def _build_backend(self):
-        if self.url:
-            try:
-                from qdrant_client import QdrantClient  # type: ignore
-                from qdrant_client.http.models import Distance, PointStruct, VectorParams  # type: ignore
-            except ImportError:
-                return InMemoryQdrantCollection()
-
-            client = QdrantClient(url=self.url)
-            try:
-                client.get_collection(self.collection_name)
-            except Exception:
-                client.create_collection(
-                    collection_name=self.collection_name,
-                    # bge-m3 输出 1024 维向量
-                    vectors_config=VectorParams(size=EMBEDDING_DIMENSIONS, distance=Distance.COSINE),
-                )
-
-            class RemoteBackend:
-                def upsert(self_inner, points: list[QdrantPoint]) -> None:
-                    client.upsert(
-                        collection_name=self.collection_name,
-                        points=[
-                            PointStruct(id=point.point_id, vector=point.vector, payload=point.payload)
-                            for point in points
-                        ],
-                    )
-
-                def search(self_inner, query_vector: list[float], limit: int) -> list[QdrantPoint]:
-                    results = client.search(
-                        collection_name=self.collection_name,
-                        query_vector=query_vector,
-                        limit=limit,
-                    )
-                    return [
-                        QdrantPoint(
-                            point_id=str(result.id),
-                            vector=query_vector,
-                            payload=dict(result.payload or {}),
-                            score=float(result.score or 0.0),
-                        )
-                        for result in results
-                    ]
-
-            return RemoteBackend()
-        return InMemoryQdrantCollection()
-
-    def upsert(self, points: list[QdrantPoint]) -> None:
-        self._backend.upsert(points)
-
-    def search(self, query_vector: list[float], limit: int = 3) -> list[QdrantPoint]:
-        return self._backend.search(query_vector, limit)
-
-
 class SopRetriever:
-    def __init__(self, store: QdrantCompatibleVectorStore, embedder: Embedder, sop_catalog: tuple[SopMetadata, ...]):
+    def __init__(self, store: MilvusVectorStore, embedder: Embedder, sop_catalog: tuple[SopMetadata, ...]):
         self.store = store
         self.embedder = embedder
         self.sop_catalog = sop_catalog
@@ -126,7 +31,7 @@ class SopRetriever:
         for sop in self.sop_catalog:
             searchable_text = self._build_sop_document(sop)
             points.append(
-                QdrantPoint(
+                VectorPoint(
                     point_id=sop.sop_id,
                     vector=self.embedder.embed(searchable_text),
                     payload=sop.model_dump(),
@@ -270,20 +175,11 @@ class SopRetriever:
         return boost, matched_conditions
 
 
-def _cosine_similarity(left: list[float], right: list[float]) -> float:
-    numerator = sum(a * b for a, b in zip(left, right))
-    left_norm = math.sqrt(sum(a * a for a in left))
-    right_norm = math.sqrt(sum(b * b for b in right))
-    if left_norm == 0 or right_norm == 0:
-        return 0.0
-    return numerator / (left_norm * right_norm)
-
-
 @lru_cache(maxsize=1)
 def get_default_retriever() -> SopRetriever:
-    """创建默认的 SOP 检索器，使用 Ollama bge-m3 真实 embedding。"""
+    """创建默认的 SOP 检索器，使用 Milvus 向量存储和 Ollama bge-m3 真实 embedding。"""
     return SopRetriever(
-        store=QdrantCompatibleVectorStore(),
+        store=MilvusVectorStore(),
         embedder=create_embedder(),
         sop_catalog=get_seed_sops(),
     )

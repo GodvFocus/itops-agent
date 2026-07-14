@@ -242,9 +242,8 @@ def test_generate_question_should_fallback_to_template_on_llm_failure():
 
 def test_factory_should_return_mock_for_mock_provider():
     settings = RuntimeSettings(
-        qdrant_enabled=False,
-        qdrant_url="",
-        qdrant_collection_name="sop_catalog",
+        milvus_uri="http://localhost:19530",
+        milvus_collection_name="sop_catalog",
         embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(provider="mock", model="mock-chat", endpoint="", api_key=""),
     )
@@ -254,9 +253,8 @@ def test_factory_should_return_mock_for_mock_provider():
 
 def test_factory_should_return_openai_compatible_for_deepseek():
     settings = RuntimeSettings(
-        qdrant_enabled=False,
-        qdrant_url="",
-        qdrant_collection_name="sop_catalog",
+        milvus_uri="http://localhost:19530",
+        milvus_collection_name="sop_catalog",
         embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(
             provider="deepseek",
@@ -274,9 +272,8 @@ def test_factory_should_return_openai_compatible_for_deepseek():
 def test_factory_should_fallback_to_mock_when_api_key_missing():
     """配置了真实 provider 但没有 api_key 时应降级到 mock。"""
     settings = RuntimeSettings(
-        qdrant_enabled=False,
-        qdrant_url="",
-        qdrant_collection_name="sop_catalog",
+        milvus_uri="http://localhost:19530",
+        milvus_collection_name="sop_catalog",
         embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(
             provider="deepseek",
@@ -291,9 +288,8 @@ def test_factory_should_fallback_to_mock_when_api_key_missing():
 
 def test_factory_should_fallback_to_mock_for_unknown_provider():
     settings = RuntimeSettings(
-        qdrant_enabled=False,
-        qdrant_url="",
-        qdrant_collection_name="sop_catalog",
+        milvus_uri="http://localhost:19530",
+        milvus_collection_name="sop_catalog",
         embedding=ModelConfig(provider="ollama", model="bge-m3:latest", endpoint="http://localhost:11434/v1", api_key="ollama"),
         chat=ModelConfig(provider="unknown-llm", model="x", endpoint="http://x", api_key="k"),
     )

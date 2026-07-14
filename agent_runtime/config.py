@@ -19,9 +19,8 @@ class ModelConfig:
 
 @dataclass(frozen=True, slots=True)
 class RuntimeSettings:
-    qdrant_enabled: bool
-    qdrant_url: str
-    qdrant_collection_name: str
+    milvus_uri: str
+    milvus_collection_name: str
     embedding: ModelConfig
     chat: ModelConfig
 
@@ -132,13 +131,10 @@ def load_runtime_settings(
     """
     dotenv_values_map = _load_dotenv_values(dotenv_paths)
     merged_values = {**dotenv_values_map, **dict(os.environ if env is None else env)}
-    qdrant_url = _read_value("ITOPS_QDRANT_URL", merged_values, "")
-    if not qdrant_url:
-        qdrant_url = _read_value("QDRANT_URL", merged_values, "")
+    milvus_uri = _read_value("ITOPS_MILVUS_URI", merged_values, "http://localhost:19530")
     return RuntimeSettings(
-        qdrant_enabled=_read_bool("ITOPS_QDRANT_ENABLED", bool(qdrant_url), merged_values),
-        qdrant_url=qdrant_url,
-        qdrant_collection_name=_read_value("ITOPS_QDRANT_COLLECTION", merged_values, "sop_catalog"),
+        milvus_uri=milvus_uri,
+        milvus_collection_name=_read_value("ITOPS_MILVUS_COLLECTION", merged_values, "sop_catalog"),
         embedding=_read_model("EMBEDDING", "ollama", "bge-m3:latest", merged_values, EMBEDDING_PROVIDER_DEFAULTS),
         chat=_read_model("CHAT", "mock", "mock-chat", merged_values, CHAT_PROVIDER_DEFAULTS),
     )

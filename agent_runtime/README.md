@@ -9,7 +9,7 @@
 - 供应商默认 base_url / model 自动填充，用户只需配置 `ITOPS_CHAT_PROVIDER` + `ITOPS_CHAT_API_KEY`
 - 提供 `classify_intent`、`extract_slots`、`generate_question`、`retrieve_sop`、`generate_plan` 五个真实节点
 - 提供 10 条结构化 SOP seed 数据
-- 提供 Tool Registry 读取、Qdrant 兼容向量入库与检索能力
+- 提供 Tool Registry 读取、Milvus 向量入库与检索能力
 - 提供 Candidate Plan 的 `Pydantic` / 合同级基础校验
 - 使用 **LangGraph StateGraph** 作为真实状态图编排引擎：
   - 定义统一 `AgentState` 状态对象
@@ -40,9 +40,8 @@ D:/anaconda3/envs/lc/python.exe -m pip install -r agent_runtime/requirements.txt
 
 支持的键包括：
 
-- `ITOPS_QDRANT_ENABLED`
-- `ITOPS_QDRANT_URL`
-- `ITOPS_QDRANT_COLLECTION`
+- `ITOPS_MILVUS_URI`
+- `ITOPS_MILVUS_COLLECTION`
 - `ITOPS_EMBEDDING_PROVIDER`
 - `ITOPS_EMBEDDING_MODEL`
 - `ITOPS_EMBEDDING_ENDPOINT`
@@ -70,4 +69,4 @@ D:/anaconda3/envs/lc/python.exe -m pip install -r agent_runtime/requirements.txt
 当 `ITOPS_CHAT_PROVIDER` 配置为真实供应商但缺少 `ITOPS_CHAT_API_KEY` 时，自动降级到 MockLLMClient 保证链路不中断。
 真实 LLM 调用失败时也会自动重试并最终降级到 MockLLMClient。
 
-这样可以保持 Java / Python 运行时解耦，同时避免后续接入 Qdrant、Embedding 模型、Chat 模型时出现两套配置命名。
+这样可以保持 Java / Python 运行时解耦，同时避免后续接入 Milvus、Embedding 模型、Chat 模型时出现两套配置命名。

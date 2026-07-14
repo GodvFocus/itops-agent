@@ -11,5 +11,5 @@ langgraph>=0.2,<1
 # OpenAI SDK（DeepSeek / Qwen / GLM 均通过 OpenAI 兼容协议接入）
 openai>=1,<2
 
-# 可选依赖：需要真实 Qdrant 时再安装
-# qdrant-client
+# Milvus 向量数据库客户端
+pymilvus>=2.4,<3

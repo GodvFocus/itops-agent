@@ -57,10 +57,9 @@ itops:
       fast-store: ${ITOPS_HARNESS_IDEMPOTENCY_FAST_STORE:memory}
       key-prefix: ${ITOPS_HARNESS_IDEMPOTENCY_KEY_PREFIX:itops:harness:idem:}
   integrations:
-    qdrant:
-      enabled: ${ITOPS_QDRANT_ENABLED:false}
-      url: ${ITOPS_QDRANT_URL:}
-      collection-name: ${ITOPS_QDRANT_COLLECTION:sop_catalog}
+    milvus:
+      uri: ${ITOPS_MILVUS_URI:http://localhost:19530}
+      collection-name: ${ITOPS_MILVUS_COLLECTION:sop_catalog}
   ai:
     embedding:
       provider: ${ITOPS_EMBEDDING_PROVIDER:ollama}

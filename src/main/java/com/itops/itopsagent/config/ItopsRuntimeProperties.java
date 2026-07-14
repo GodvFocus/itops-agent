@@ -8,7 +8,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 统一沉淀项目级运行时配置命名空间。
- * 这样后续接入真实 Redis、RabbitMQ、Qdrant 以及模型配置时，不需要把配置散落到业务类里。
+ * 这样后续接入真实 Redis、RabbitMQ、Milvus 以及模型配置时，不需要把配置散落到业务类里。
  */
 @Getter
 @Setter
@@ -62,14 +62,13 @@ public class ItopsRuntimeProperties {
     @Getter
     @Setter
     public static class Integrations {
-        private final Qdrant qdrant = new Qdrant();
+        private final Milvus milvus = new Milvus();
     }
 
     @Getter
     @Setter
-    public static class Qdrant {
-        private boolean enabled;
-        private String url = "";
+    public static class Milvus {
+        private String uri = "http://localhost:19530";
         private String collectionName = "sop_catalog";
     }
 

@@ -95,7 +95,7 @@
   - 状态历史与审计日志
   - 基于 `MyBatis-Plus` 乐观锁的并发保护
   - Agent 意图识别、槽位抽取、缺失字段追问与二次理解
-  - 10 条结构化 SOP seed、Qdrant 兼容检索与候选计划生成
+  - 10 条结构化 SOP seed、Milvus 向量检索与候选计划生成
   - Java Harness Plan 预校验与异步执行接口
   - `tool_call_log`、`idempotency_record` 持久化
   - `approval_task` 审批任务持久化、审批通过恢复执行、审批拒绝升级人工
@@ -161,7 +161,7 @@
 
 - 槽位完整后自动执行 `retrieve_sop -> generate_plan`
 - 当前内置 10 条结构化 SOP，覆盖账号锁定、登录异常、VPN、MFA、权限申请、高风险审批等场景
-- 检索层优先走 Qdrant 兼容接口；离线环境下回退到内存向量仓储，保证本地验证可运行
+- 检索层使用 Milvus 向量数据库（本地 Docker 部署），启动时校验连接可用性
 - Candidate Plan 只允许使用 `tool_registry.yaml` 中已注册的工具动作
 - 高风险步骤会显式打上 `requiredApproval=true`，避免 Python 侧直接越过审批门禁
 
@@ -200,7 +200,7 @@
 - 通过 OpenAI 兼容协议接入真实 LLM，支持 DeepSeek、Qwen、GLM 配置化切换
 - 提供 `classify_intent`、`extract_slots`、`generate_question`、`retrieve_sop`、`generate_plan` 五个真实节点
 - 提供 `ContextBuilder`
-- 提供 Tool Registry 读取、SOP seed 与 Qdrant 兼容检索能力
+- 提供 Tool Registry 读取、SOP seed 与 Milvus 向量检索能力
 - 使用 LangGraph StateGraph 实现真实状态图编排，含条件边和节点级 trace；未安装 langgraph 时回退到顺序执行器
 - 所有节点输出统一通过 `Pydantic` 模型校验
 
@@ -304,7 +304,7 @@ macOS / Linux：
 D:/anaconda3/envs/lc/python.exe -m pip install -r agent_runtime/requirements.txt
 ```
 
-Python Runtime 支持通过项目根目录 `.env` 配置 Qdrant、Embedding 模型与 Chat 模型。可参考 `.env.example`。
+Python Runtime 支持通过项目根目录 `.env` 配置 Milvus、Embedding 模型与 Chat 模型。可参考 `.env.example`。
 
 ### 运行测试
 
@@ -510,11 +510,10 @@ agent_runtime
 Phase 5 本地验证结果：
 
 - `mvn -q test`：31 个 Java 测试通过
-- `D:/anaconda3/envs/lc/python.exe -m pytest agent_runtime/tests -q`：43 个测试通过
+- `D:/anaconda3/envs/lc/python.exe -m pytest agent_runtime/tests -q`：46 个测试通过
 
 ## 后续方向
 
-- 真实 Qdrant 检索与 SOP reindex
 - 审批策略、审批链路与人工接管编排增强
 - 真实 Redis / RabbitMQ 客户端替换当前内存适配器
 - OpenTelemetry 链路追踪和 Agent 节点可观测性

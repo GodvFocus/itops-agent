@@ -24,8 +24,8 @@
 - Agent 侧已使用 LangGraph StateGraph 实现真实状态图编排（含条件边、节点级 trace）
 - Agent 侧已通过 OpenAI 兼容协议接入真实 LLM（支持 DeepSeek/Qwen/GLM 配置化切换）
 - Agent 侧已通过 Ollama 接入 bge-m3 真实 Embedding 模型（1024 维向量）
+- Agent 侧已接入 Milvus 向量数据库（本地 Docker 部署），启动时校验连接，不可达则报错退出
 - RabbitMQ / Redis 当前是"配置入口已预留、实现仍以内存适配器为默认值"
-- Qdrant 当前支持通过统一命名配置接真实地址；未配置时回退到内存向量仓储
 
 ## 运行配置约定
 
@@ -34,7 +34,7 @@
   - MySQL
   - RabbitMQ
   - Redis
-  - Qdrant
+  - Milvus
   - Embedding 模型
   - Chat 模型
 - Python 侧不直接解析 Spring YAML，而是按以下顺序读取同名配置：
@@ -88,6 +88,7 @@
 - LangGraph（Agent 状态图编排）
 - OpenAI SDK（DeepSeek/Qwen/GLM 通过 OpenAI 兼容协议接入）
 - Ollama + bge-m3（本地 Embedding 模型）
+- Milvus（向量数据库，本地 Docker 部署）
 
 ## Git 约束
 
